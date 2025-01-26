@@ -1,0 +1,12 @@
+{
+  "name": "yugioh-superdb",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Damien GILLES <pro@gillesdamien.com>",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "jsdom": "^25.0.0",
+    "sql.js": "^1.11.0"
+  }
+}
