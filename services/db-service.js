@@ -98,6 +98,38 @@ SELECT MAX(id) as max_id FROM card`);
     return true;
   }
 
+  async getBanlistId(date, region) {
+    const regionId = await this.getOrCreateRegionId(region);
+    return await this.db.get(`SELECT id FROM banlist WHERE effective_date = ? AND region_id = ?`, [date, regionId]);
+  }
+
+  async getOrCreateBanlistId(date, region) {
+    const result = getBanlistId(date, region);
+
+    if (result) {
+      return result.id;
+    } else {
+      const { lastID } = await this.db.run(`INSERT INTO banlist (effective_date, region_id) VALUES (?, ?)`, [date, regionId]);
+      return lastID;
+    }
+  }
+
+  async getOrCreateRegionId(region) {
+    const result = await this.db.get(`SELECT id FROM region WHERE region = ?`, [region]);
+
+    if (result) {
+      return result.id;
+    } else {
+      const { lastID } = await this.db.run(`INSERT INTO region (region) VALUES (?)`, [region]);
+      return lastID;
+    }
+  }
+
+  async saveLimitation(banlistId, cardId, listId) {
+    const limitation = listId === 'list_forbidden' ? 0 : listId === 'list_limited' ? 1 : 2;
+    await this.db.run(`INSERT INTO limitation (banlist_id, card_id, limitation) VALUES (?, ?, ?)`, [banlistId, cardId, limitation]);
+  }
+
   async close() {
     saveDb(this.db);
   }

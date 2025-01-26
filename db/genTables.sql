@@ -92,11 +92,10 @@ CREATE TABLE edition(
 CREATE TABLE limitation(
     id INTEGER PRIMARY KEY,
     banlist_id INTEGER,
-    card_id INTEGER,
-    limitation INTEGER, -- ex: 0 = forbidden, 1 = limited, 2 = semi-limited
+    card_id INTEGER, -- REFERENCES card(id)
+    limitation INTEGER, -- ex: 0 = forbidden, 1 = limited, 2 = semi_limited
 
-    FOREIGN KEY(banlist_id) REFERENCES banlist(id),
-    FOREIGN KEY(card_id) REFERENCES card(id)
+    FOREIGN KEY(banlist_id) REFERENCES banlist(id)
 );
 
 CREATE TABLE region(

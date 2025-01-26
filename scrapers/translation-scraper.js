@@ -9,24 +9,26 @@ export class TranslationScraper extends BaseScraper {
             Trap: {
                 ja: '罠',
                 ko: '함정',
-                ea: 'Trap',
+                ae: 'Trap',
                 en: 'Trap',
                 de: 'Fallen',
                 fr: 'Piège',
                 it: 'Trappola',
                 es: 'Trampa',
-                pt: 'Justo'
+                pt: 'Justo',
+                cn: 'Trap',
             },
             Spell: {
                 ja: '魔法',
                 ko: '마법',
-                ea: 'Spell',
+                ae: 'Spell',
                 en: 'Spell',
                 de: 'Zauber',
                 fr: 'Magie',
                 it: 'Magia',
                 es: 'Mágica',
-                pt: 'Magia'
+                pt: 'Magia',
+                cn: 'Trap',
             }
         };
     }

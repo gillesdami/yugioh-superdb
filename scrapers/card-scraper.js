@@ -71,6 +71,7 @@ export class CardScraper extends BaseScraper {
                 cardData.attribute += ` ${toTranslation.Trap}`;
             }
         } else {
+            console.log(cardData.attribute.includes(fromTranslation.Spell), this.translations[locale], fromTranslation.Spell);
             console.warn(`Warning: No translation found for attribute ${cardData.attribute}`);
         }
 
@@ -115,11 +116,11 @@ export class CardScraper extends BaseScraper {
         // Get basic card info
         const attribute = this.extractText(itemBoxes[0]);
 
-        let levelRankArrows;
+        let levelRankArrows = null;
         if (itemBoxes[1]) {
             const linkIcon = itemBoxes[1]?.querySelector('.icon_img_set');
             if (linkIcon) {
-                levelRankArrows = this.calculateLinkArrows(linkIcon)
+                levelRankArrows = this.calculateLinkArrows(linkIcon);
             } else {
                 levelRankArrows = this.extractNumber(itemBoxes[1]);
             }

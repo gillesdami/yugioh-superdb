@@ -312,7 +312,9 @@
       "14": "Flip",
       "15": "Pendulum",
       "17": "Link"
-    }
+    },
+    "Trap": "Trap",
+    "Spell": "Spell"
   },
   "cn": {
     "attribute": {
@@ -373,7 +375,9 @@
       "14": "Flip",
       "15": "Pendulum",
       "17": "Link"
-    }
+    },
+    "Trap": "Trap",
+    "Spell": "Spell"
   },
   "es": {
     "attribute": {
@@ -625,7 +629,7 @@
       "15": "Pêndulo",
       "17": "Link"
     },
-    "Trap": "Justo",
+    "Trap": "Armadilha",
     "Spell": "Magia"
   }
 }

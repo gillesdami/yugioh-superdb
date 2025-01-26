@@ -58,10 +58,17 @@ async function scrapeTranslations() {
   }
 }
 
+async function scrapeBanlists() {
+  const syncService = new SyncService();
+  await syncService.init();
+  await syncService.scrapeBanlists();
+}
+
 async function main() {
   try {
     await scrapeTranslations();
     await syncCards();
+    await scrapeBanlists();
   } catch (error) {
     console.error('Fatal error:', error);
     process.exit(1);
