@@ -7,14 +7,15 @@ CREATE TABLE lang(
 
 CREATE TABLE monster_type(
     id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE -- english card type, ex: dragon
+    name TEXT NOT NULL UNIQUE -- english card type if the card type exist in english else in japanese, ex: Dragon
 );
 
 CREATE TABLE type(
     id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE -- english card type, ex: dragon
+    name TEXT NOT NULL UNIQUE -- english card type, ex: Cyberse
 );
 
+---- a table to join 1 card to many types
 CREATE TABLE type_card(
     id INTEGER PRIMARY KEY,
     type_id INTEGER,
@@ -26,9 +27,10 @@ CREATE TABLE type_card(
 
 CREATE TABLE attribute(
     id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE -- english card attribute ex: light
+    name TEXT NOT NULL UNIQUE -- english card attribute ex: light, continuousspell, etc...
 );
 
+-- this table describle the card informations that are subject to change depending on the locale
 CREATE TABLE localization(
     id INTEGER PRIMARY KEY,
     card_id INTEGER,
@@ -43,7 +45,7 @@ CREATE TABLE localization(
 
 CREATE TABLE card(
     id INTEGER PRIMARY KEY, -- yugioh db.yugioh-card id
-    monste_type_id INTEGER, -- monster type or null if not concerned
+    monster_type_id INTEGER, -- monster type or null if not concerned
     attribute_id INTEGER, -- card attribute
     -- level_rank_arrows is a flag for link monster, the flag is computed from 
     -- the numpads position of the arrows with the formula
@@ -53,7 +55,7 @@ CREATE TABLE card(
     def INTEGER, -- null if "?" or not concerned
     pendulum_scale, -- null if not concerned
 
-    FOREIGN KEY(monste_type_id) REFERENCES monster_type(id),
+    FOREIGN KEY(monster_type_id) REFERENCES monster_type(id),
     FOREIGN KEY(attribute_id) REFERENCES attribute(id)
 );
 
@@ -63,7 +65,9 @@ CREATE TABLE cardset(
     id INTEGER PRIMARY KEY,
     name TEXT, -- ex: DESTINY SOLDIERS
     release_date DATE,
-    lang_id INTEGER
+    lang_id INTEGER,
+
+    FOREIGN KEY(lang_id) REFERENCES lang(id)
 );
 
 CREATE TABLE rarity(
@@ -75,12 +79,10 @@ CREATE TABLE edition(
     id INTEGER PRIMARY KEY,
     card_id INTEGER,
     card_number TEXT NOT NULL UNIQUE, -- ex: AP08-EN001
-    localization_id INTEGER,
     cardset_id INTEGER,
     rarity_id INTEGER,
 
     FOREIGN KEY(card_id) REFERENCES card(id),
-    FOREIGN KEY(localization_id) REFERENCES localization(id),
     FOREIGN KEY(cardset_id) REFERENCES cardset(id),
     FOREIGN KEY(rarity_id) REFERENCES rarity(id)
 );
