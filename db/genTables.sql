@@ -17,10 +17,10 @@ CREATE TABLE type(
 
 ---- a table to join 1 card to many types
 CREATE TABLE type_card(
-    id INTEGER PRIMARY KEY,
     type_id INTEGER,
     card_id INTEGER,
 
+    PRIMARY KEY (type_id, card_id),
     FOREIGN KEY(type_id) REFERENCES type(id),
     FOREIGN KEY(card_id) REFERENCES card(id)
 );

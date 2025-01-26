@@ -12,4 +12,6 @@ export default async function genTables() {
     const data = db.export();
     const buffer = Buffer.from(data);
     writeFileSync("yugioh-superdb.sqlite", buffer);
+
+    return db;
 }

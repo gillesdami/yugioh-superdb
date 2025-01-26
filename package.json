@@ -5,6 +5,9 @@
   "author": "Damien GILLES <pro@gillesdamien.com>",
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
     "jsdom": "^25.0.0",
     "sql.js": "^1.11.0"
