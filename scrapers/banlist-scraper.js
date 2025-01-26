@@ -13,12 +13,20 @@ export class BanlistScraper extends BaseScraper {
         return Array.from(options).map(option => option.value);
     }
 
+    getRegion(locale) {
+        return locale === 'ja' ? 'OCG' : 'TCG';
+    }
+
     async scrapeBanlists() {
         const locales = ['en', 'ja'];
+
         for (const locale of locales) {
             const dates = await this.fetchBanlistDates(locale);
+            const region = this.getRegion(locale);
+
             for (const date of dates) {
-                if (getBanlistId(date, region) === null) {
+                console.log(`Scraping banlist for ${region} at date ${date}...`);
+                if (this.db.getBanlistId(date, region) === undefined) {
                     await this.scrapeBanlist(date, locale);
                 }
             }
@@ -26,13 +34,13 @@ export class BanlistScraper extends BaseScraper {
     }
 
     async scrapeBanlist(date, locale) {
-        const region = locale === 'ja' ? 'OCG' : 'TCG';
+        const region = this.getRegion(locale);
         const url = `https://www.db.yugioh-card.com/yugiohdb/forbidden_limited.action?forbiddenLimitedDate=${date}&request_locale=${locale}`;
 
         try {
             const document = await this.parseHTML(url);
             const lists = ['list_forbidden', 'list_limited', 'list_semi_limited'];
-            const banlistId = await this.db.getOrCreateBanlistId(date, region);
+            const banlistId = this.db.getOrCreateBanlistId(date, region);
 
             for (const listName of lists) {
                 const list = document.getElementById(listName);
@@ -44,7 +52,7 @@ export class BanlistScraper extends BaseScraper {
                 const inputs = list.querySelectorAll('input.link_value');
                 for (const input of inputs) {
                     const cid = input.value.match(/cid=(\d+)/)[1];
-                    await this.db.saveLimitation(banlistId, cid, listName);
+                    this.db.saveLimitation(banlistId, cid, listName);
                 }
             }
         } catch (error) {

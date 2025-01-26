@@ -3,15 +3,15 @@ import { DbService } from './db-service.js';
 import { BanlistScraper } from '../scrapers/banlist-scraper.js';
 
 export class SyncService {
-    async init() {
+    init() {
         this.db = new DbService();
-        await this.db.open();
+        this.db.open();
         this.batchSize = 10;
     }
 
     async syncCards() {
         const scraper = new CardScraper();
-        let lastProcessedId = await this.db.getLastProcessedCardId();
+        let lastProcessedId = this.db.getLastProcessedCardId();
         console.log(`Last processed card ID: ${lastProcessedId}`);
 
         const cardGenerator = scraper.scrapeCards(lastProcessedId + 1);
@@ -22,8 +22,8 @@ export class SyncService {
         for await (const cardDatas of cardGenerator) {
             for (const cardData of cardDatas) {
                 try {
-                    await this.db.validateCardData(cardData);
-                    await this.db.insertCard(cardData);
+                    this.db.validateCardData(cardData);
+                    this.db.insertCard(cardData);
                 } catch (error) {
                     errorCount++;
                     console.error(`Error processing card ${cardData.id} in lang ${cardData.locale}:`, error.message);
@@ -37,13 +37,13 @@ export class SyncService {
             }
         }
 
-        lastProcessedId = await this.db.getLastProcessedCardId();
+        lastProcessedId = this.db.getLastProcessedCardId();
         console.log(`Last processed card ID: ${lastProcessedId}`);
 
         return {
             totalProcessed: processedCount,
             totalErrors: errorCount,
-            lastProcessedId: await this.db.getLastProcessedCardId()
+            lastProcessedId: this.db.getLastProcessedCardId()
         };
     }
 
@@ -53,6 +53,6 @@ export class SyncService {
     }
 
     async close() {
-        await this.db.close();
+        this.db.close();
     }
 }

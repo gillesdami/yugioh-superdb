@@ -60,15 +60,16 @@ async function scrapeTranslations() {
 
 async function scrapeBanlists() {
   const syncService = new SyncService();
-  await syncService.init();
+  syncService.init();
   await syncService.scrapeBanlists();
+  syncService.close();
 }
 
 async function main() {
   try {
     await scrapeTranslations();
-    await syncCards();
     await scrapeBanlists();
+    //await syncCards();
   } catch (error) {
     console.error('Fatal error:', error);
     process.exit(1);

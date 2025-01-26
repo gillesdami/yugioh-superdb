@@ -2,10 +2,10 @@ import { loadDb, saveDb } from '../db/dbutils.js';
 
 export class DbService {
   async open() {
-    this.db = await loadDb();
+    this.db = loadDb();
   }
 
-  async insertCard(cardData) {
+  insertCard(cardData) {
     try {
       this.db.exec('BEGIN TRANSACTION');
 
@@ -98,39 +98,32 @@ SELECT MAX(id) as max_id FROM card`);
     return true;
   }
 
-  async getBanlistId(date, region) {
-    const regionId = await this.getOrCreateRegionId(region);
-    return await this.db.get(`SELECT id FROM banlist WHERE effective_date = ? AND region_id = ?`, [date, regionId]);
+  getBanlistId(date, region) {
+    const regionId = this.getOrCreateRegionId(region);
+    const banlistResult = this.db.exec(`SELECT id FROM banlist WHERE effective_date = ? AND region_id = ?`, [date, regionId]);
+    return banlistResult[0]?.values[0]?.[0];
   }
 
-  async getOrCreateBanlistId(date, region) {
-    const result = getBanlistId(date, region);
+  getOrCreateBanlistId(date, region) {
+    const regionId = this.getOrCreateRegionId(region);
+    this.db.exec(`INSERT OR IGNORE INTO banlist (effective_date, region_id) VALUES (?, ?)`, [date, regionId]);
+    const banlistResult = this.db.exec(`SELECT id FROM banlist WHERE effective_date = ? AND region_id = ?`, [date, regionId]);
+    return banlistResult[0]?.values[0]?.[0];
 
-    if (result) {
-      return result.id;
-    } else {
-      const { lastID } = await this.db.run(`INSERT INTO banlist (effective_date, region_id) VALUES (?, ?)`, [date, regionId]);
-      return lastID;
-    }
   }
 
-  async getOrCreateRegionId(region) {
-    const result = await this.db.get(`SELECT id FROM region WHERE region = ?`, [region]);
-
-    if (result) {
-      return result.id;
-    } else {
-      const { lastID } = await this.db.run(`INSERT INTO region (region) VALUES (?)`, [region]);
-      return lastID;
-    }
+  getOrCreateRegionId(region) {
+    this.db.exec(`INSERT OR IGNORE INTO region (region) VALUES (?)`, [region]);
+    const regionResult = this.db.exec(`SELECT id FROM region WHERE region = ?`, [region]);
+    return regionResult[0]?.values[0]?.[0];
   }
 
-  async saveLimitation(banlistId, cardId, listId) {
+  saveLimitation(banlistId, cardId, listId) {
     const limitation = listId === 'list_forbidden' ? 0 : listId === 'list_limited' ? 1 : 2;
-    await this.db.run(`INSERT INTO limitation (banlist_id, card_id, limitation) VALUES (?, ?, ?)`, [banlistId, cardId, limitation]);
+    this.db.exec(`INSERT OR IGNORE INTO limitation (banlist_id, card_id, limitation) VALUES (?, ?, ?)`, [banlistId, cardId, limitation]);
   }
 
-  async close() {
+  close() {
     saveDb(this.db);
   }
 }

@@ -43,12 +43,10 @@ export class BaseScraper {
 
         const errorData = {
             timestamp: new Date().toISOString(),
-            error: error.message,
-            stack: error.stack,
             ...context
         };
         // TODO: Implement error logging
-        console.error('Scraping Error:', errorData);
+        console.error('Scraping Error:', errorData, error);
     }
 
     extractText(element, selector) {
