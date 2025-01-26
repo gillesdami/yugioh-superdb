@@ -1,11 +1,12 @@
 import { CardScraper } from '../scrapers/card-scraper.js';
 import { DbService } from './db-service.js';
 import { BanlistScraper } from '../scrapers/banlist-scraper.js';
+import { SetScraper } from '../scrapers/set-scraper.js';
 
 export class SyncService {
-    init() {
+    async init() {
         this.db = new DbService();
-        this.db.open();
+        await this.db.open();
         this.batchSize = 10;
     }
 
@@ -50,6 +51,11 @@ export class SyncService {
     async scrapeBanlists() {
         const scraper = new BanlistScraper(this.db);
         await scraper.scrapeBanlists();
+    }
+
+    async scrapeSets() {
+        const scraper = new SetScraper(this.db);
+        await scraper.scrapeSets();
     }
 
     async close() {

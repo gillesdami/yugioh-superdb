@@ -25,8 +25,8 @@ export class BanlistScraper extends BaseScraper {
             const region = this.getRegion(locale);
 
             for (const date of dates) {
-                console.log(`Scraping banlist for ${region} at date ${date}...`);
                 if (this.db.getBanlistId(date, region) === undefined) {
+                    console.log(`Scraping banlist for ${region} at date ${date}...`);
                     await this.scrapeBanlist(date, locale);
                 }
             }

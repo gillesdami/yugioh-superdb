@@ -75,16 +75,24 @@ CREATE TABLE rarity(
     name TEXT NOT NULL UNIQUE -- ex: SR
 );
 
-CREATE TABLE edition(
-    id INTEGER PRIMARY KEY,
-    card_id INTEGER,
-    card_number TEXT NOT NULL UNIQUE, -- ex: AP08-EN001
-    cardset_id INTEGER,
+
+CREATE TABLE prints(
+    edition_id INTEGER,
     rarity_id INTEGER,
 
-    FOREIGN KEY(card_id) REFERENCES card(id),
-    FOREIGN KEY(cardset_id) REFERENCES cardset(id),
+    PRIMARY KEY (edition_id, rarity_id),
+    FOREIGN KEY(edition_id) REFERENCES edition(id),
     FOREIGN KEY(rarity_id) REFERENCES rarity(id)
+);
+
+CREATE TABLE edition(
+    card_id INTEGER, -- REFERENCES card(id)
+    cardset_id INTEGER,
+    card_number TEXT NOT NULL UNIQUE, -- ex: AP08-EN001
+
+    PRIMARY KEY (card_id, cardset_id),
+    FOREIGN KEY(card_id) REFERENCES card(id),
+    FOREIGN KEY(cardset_id) REFERENCES cardset(id)
 );
 
 -- ban list informations

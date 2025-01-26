@@ -42,8 +42,8 @@ async function scrapeTranslations() {
   }
 
   try {
-    const scraper = new TranslationScraper();
     console.log('Starting translation scraping...');
+    const scraper = new TranslationScraper();
     const translations = await scraper.scrapeAll();
 
     const success = await scraper.saveToFile(translations);
@@ -59,16 +59,28 @@ async function scrapeTranslations() {
 }
 
 async function scrapeBanlists() {
+  console.log('Starting banlist scraping...');
   const syncService = new SyncService();
-  syncService.init();
+  await syncService.init();
   await syncService.scrapeBanlists();
-  syncService.close();
+  await syncService.close();
+  console.log('Set banlist completed');
+}
+
+async function scrapeSets() {
+  console.log('Starting set scraping...');
+  const syncService = new SyncService();
+  await syncService.init();
+  await syncService.scrapeSets();
+  await syncService.close();
+  console.log('Set scraping completed');
 }
 
 async function main() {
   try {
     await scrapeTranslations();
     await scrapeBanlists();
+    await scrapeSets();
     //await syncCards();
   } catch (error) {
     console.error('Fatal error:', error);

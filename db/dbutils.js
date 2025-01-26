@@ -6,7 +6,7 @@ import genTables from "./genTables.js";
 const SQL = await initSqlJs();
 const path = resolve(import.meta.dirname, "..", "yugioh-superdb.sqlite");
 
-export function loadDb() {
+export async function loadDb() {
     try {
         const dbbuf = readFileSync(path);
         return new SQL.Database(dbbuf);

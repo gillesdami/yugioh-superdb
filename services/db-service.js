@@ -2,7 +2,59 @@ import { loadDb, saveDb } from '../db/dbutils.js';
 
 export class DbService {
   async open() {
-    this.db = loadDb();
+    this.db = await loadDb();
+  }
+
+  setExists(setName, locale) {
+    const result = this.db.exec(`
+        SELECT id FROM cardset
+        WHERE name = ? AND lang_id = (
+            SELECT id FROM lang WHERE abbr = ?
+        )
+    `, [setName, locale]);
+
+    return result[0]?.values[0]?.[0] !== undefined;
+}
+
+  insertOrReplaceSetDetails(setDetails) {
+    try {
+      this.db.exec('BEGIN TRANSACTION');
+
+      for (let i = 0; i < setDetails.cardIds.length; i++) {
+        const cardId = setDetails.cardIds[i];
+
+        // Insert reference data
+        this.db.exec(`INSERT OR IGNORE INTO lang (abbr) VALUES (?)`, [setDetails.locale]);
+        const langResult = this.db.exec(`SELECT id FROM lang WHERE abbr = ?`, [setDetails.locale]);
+        const langId = langResult[0]?.values[0]?.[0];
+
+        let setResult = this.db.exec(`SELECT id FROM cardset WHERE name = ? AND lang_id = ?`, [setDetails.setName,  langId]);
+        let setId = setResult[0]?.values[0]?.[0];
+
+        if (setId === undefined) {
+          this.db.exec(`INSERT OR IGNORE INTO cardset (name, release_date, lang_id) VALUES (?, ?, ?)`, [setDetails.setName, setDetails.releaseDate, langId]);
+          setResult = this.db.exec(`SELECT id FROM cardset WHERE name = ? AND release_date = ? AND lang_id = ?`, [setDetails.setName, setDetails.releaseDate, langId]);
+          setId = setResult[0]?.values[0]?.[0];
+        }
+
+        // Insert set details
+        this.db.exec(`
+            INSERT OR REPLACE INTO edition (
+                card_id, cardset_id, card_number
+            ) VALUES (?, ?, ?)
+        `, [
+            cardId,
+            setId,
+            setDetails.cardNumber,
+        ]);
+      }
+
+      this.db.exec('COMMIT');
+      saveDb(this.db);
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   insertCard(cardData) {
