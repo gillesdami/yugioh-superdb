@@ -81,7 +81,7 @@ async function main() {
     await scrapeTranslations();
     await scrapeBanlists();
     await scrapeSets();
-    //await syncCards();
+    await syncCards();
   } catch (error) {
     console.error('Fatal error:', error);
     process.exit(1);

@@ -2,7 +2,6 @@ import { BaseScraper } from './base-scraper.js';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { type } from 'os';
 
 export class CardScraper extends BaseScraper {
     constructor() {

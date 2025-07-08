@@ -47,6 +47,10 @@ export class BaseScraper {
         };
         // TODO: Implement error logging
         console.error('Scraping Error:', errorData, error);
+
+        if (process.argv.includes('--stop-on-error')) {
+            process.exit(1);
+        }
     }
 
     extractText(element, selector) {
