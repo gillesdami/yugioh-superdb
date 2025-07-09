@@ -20,33 +20,47 @@ export class DbService {
     try {
       this.db.exec('BEGIN TRANSACTION');
 
-      for (let i = 0; i < setDetails.cardIds.length; i++) {
-        const cardId = setDetails.cardIds[i];
+      // Insert reference data
+      this.db.exec(`INSERT OR IGNORE INTO lang (abbr) VALUES (?)`, [setDetails.locale]);
+      const langResult = this.db.exec(`SELECT id FROM lang WHERE abbr = ?`, [setDetails.locale]);
+      const langId = langResult[0]?.values[0]?.[0];
 
-        // Insert reference data
-        this.db.exec(`INSERT OR IGNORE INTO lang (abbr) VALUES (?)`, [setDetails.locale]);
-        const langResult = this.db.exec(`SELECT id FROM lang WHERE abbr = ?`, [setDetails.locale]);
-        const langId = langResult[0]?.values[0]?.[0];
+      let setResult = this.db.exec(`SELECT id FROM cardset WHERE name = ? AND lang_id = ?`, [setDetails.setName, langId]);
+      let setId = setResult[0]?.values[0]?.[0];
 
-        let setResult = this.db.exec(`SELECT id FROM cardset WHERE name = ? AND lang_id = ?`, [setDetails.setName,  langId]);
-        let setId = setResult[0]?.values[0]?.[0];
-
-        if (setId === undefined) {
-          this.db.exec(`INSERT OR IGNORE INTO cardset (name, release_date, lang_id) VALUES (?, ?, ?)`, [setDetails.setName, setDetails.releaseDate, langId]);
+      if (setId === undefined) {
+        this.db.exec(`INSERT OR IGNORE INTO cardset (name, release_date, lang_id) VALUES (?, ?, ?)`, [setDetails.setName, setDetails.releaseDate, langId]);
+        
+        // Handle null release date properly in the query
+        if (setDetails.releaseDate === null) {
+          setResult = this.db.exec(`SELECT id FROM cardset WHERE name = ? AND release_date IS NULL AND lang_id = ?`, [setDetails.setName, langId]);
+        } else {
           setResult = this.db.exec(`SELECT id FROM cardset WHERE name = ? AND release_date = ? AND lang_id = ?`, [setDetails.setName, setDetails.releaseDate, langId]);
-          setId = setResult[0]?.values[0]?.[0];
         }
+        setId = setResult[0]?.values[0]?.[0];
+      }
 
-        // Insert set details
-        this.db.exec(`
-            INSERT OR REPLACE INTO edition (
-                card_id, cardset_id, card_number
-            ) VALUES (?, ?, ?)
-        `, [
-            cardId,
-            setId,
-            setDetails.cardNumber,
-        ]);
+      // Only insert editions if we have card IDs
+      if (setDetails.cardIds && setDetails.cardIds.length > 0) {
+        for (let i = 0; i < setDetails.cardIds.length; i++) {
+          const cardId = setDetails.cardIds[i];
+          
+          // Skip if cardId is null or undefined
+          if (cardId === null || cardId === undefined) {
+            continue;
+          }
+
+          // Insert set details
+          this.db.exec(`
+              INSERT OR REPLACE INTO edition (
+                  card_id, cardset_id, card_number
+              ) VALUES (?, ?, ?)
+          `, [
+              cardId,
+              setId,
+              setDetails.cardNumber,
+          ]);
+        }
       }
 
       this.db.exec('COMMIT');
