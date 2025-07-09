@@ -31,7 +31,8 @@ export class CardScraper extends BaseScraper {
                 const cardData = {
                     id: cardId,
                     locale,
-                    ...this.extractCardData(document)
+                    ...this.extractCardData(document),
+                    editions: this.extractEditions(document),
                 };
 
                 this.translateScrapedCard(cardData, locale);
@@ -43,6 +44,34 @@ export class CardScraper extends BaseScraper {
         }
 
         return results;
+    }
+
+    extractEditions(document) {
+        //ex [ [["R", "C"], ["Rare", "Common"]], [["UR"], ["Ultra Rare"]], ...]
+        const rarities = [...document.querySelectorAll('.rarity')].map(d => [
+            [...d.querySelectorAll("p")].map(p => p.innerText.trim()),
+            [...d.querySelectorAll("span")].map(s => s.innerText.trim())
+        ])
+        const cardNumbers = [...document.querySelectorAll('.card_number')].map(el => el.textContent.trim());
+        // <input type="hidden" class="link_value" value="/yugiohdb/card_search.action?ope=1&amp;sess=1&amp;pid=2000001456000&amp;rp=99999">
+        const setIds = [...document.querySelectorAll('.pack_name ~ .link_value')].map(input => {
+            const match = input.value.match(/pid=(\d+)/);
+            return match ? match[1] : null;
+        });
+
+        return rarities.map((rarity, i) => {
+            const rarityNames = rarity[0];
+            const rarityLongNames = rarity[1];
+            const setId = setIds[i] || null;
+            const cardNumber = cardNumbers[i] || '';
+
+            return {
+                rarityNames: rarityNames,
+                rarityLongNames: rarityLongNames,
+                setId,
+                cardNumber,
+            };
+        });
     }
 
     translateScrapedCard(cardData, locale) {

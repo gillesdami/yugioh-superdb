@@ -14,7 +14,7 @@ export class DbService {
     `, [setName, locale]);
 
     return result[0]?.values[0]?.[0] !== undefined;
-}
+  }
 
   insertOrReplaceSetDetails(setDetails) {
     try {
@@ -25,43 +25,7 @@ export class DbService {
       const langResult = this.db.exec(`SELECT id FROM lang WHERE abbr = ?`, [setDetails.locale]);
       const langId = langResult[0]?.values[0]?.[0];
 
-      let setResult = this.db.exec(`SELECT id FROM cardset WHERE name = ? AND lang_id = ?`, [setDetails.setName, langId]);
-      let setId = setResult[0]?.values[0]?.[0];
-
-      if (setId === undefined) {
-        this.db.exec(`INSERT OR IGNORE INTO cardset (name, release_date, lang_id) VALUES (?, ?, ?)`, [setDetails.setName, setDetails.releaseDate, langId]);
-        
-        // Handle null release date properly in the query
-        if (setDetails.releaseDate === null) {
-          setResult = this.db.exec(`SELECT id FROM cardset WHERE name = ? AND release_date IS NULL AND lang_id = ?`, [setDetails.setName, langId]);
-        } else {
-          setResult = this.db.exec(`SELECT id FROM cardset WHERE name = ? AND release_date = ? AND lang_id = ?`, [setDetails.setName, setDetails.releaseDate, langId]);
-        }
-        setId = setResult[0]?.values[0]?.[0];
-      }
-
-      // Only insert editions if we have card IDs
-      if (setDetails.cardIds && setDetails.cardIds.length > 0) {
-        for (let i = 0; i < setDetails.cardIds.length; i++) {
-          const cardId = setDetails.cardIds[i];
-          
-          // Skip if cardId is null or undefined
-          if (cardId === null || cardId === undefined) {
-            continue;
-          }
-
-          // Insert set details
-          this.db.exec(`
-              INSERT OR REPLACE INTO edition (
-                  card_id, cardset_id, card_number
-              ) VALUES (?, ?, ?)
-          `, [
-              cardId,
-              setId,
-              setDetails.cardNumber,
-          ]);
-        }
-      }
+      this.db.exec(`INSERT OR IGNORE INTO cardset (id, name, release_date, lang_id) VALUES (?, ?, ?, ?)`, [setId, setDetails.setName, setDetails.releaseDate, langId]);
 
       this.db.exec('COMMIT');
       saveDb(this.db);
@@ -135,6 +99,18 @@ export class DbService {
         cardData.pendulumEffect
       ]);
 
+      for (let i = 0; i < cardData.editions.length; i++) {
+        const { setId, cardNumber, rarityNames, rarityLongNames } = cardData.editions[i];
+        const editionId = getOrCreateEditionId(cardData.id, setId, cardNumber);
+
+        for (let j = 0; j < rarityNames.length; j++) {
+          const rarityName = rarityNames[j];
+          const rarityLongName = rarityLongNames[j];
+          const rarityId = this.getOrCreateRarityId(rarityName, rarityLongName);
+          this.getOrCreatePrintId(editionId, rarityId);
+        }
+      }
+
       this.db.exec('COMMIT');
       saveDb(this.db);
       return true;
@@ -182,6 +158,24 @@ SELECT MAX(id) as max_id FROM card`);
     this.db.exec(`INSERT OR IGNORE INTO region (region) VALUES (?)`, [region]);
     const regionResult = this.db.exec(`SELECT id FROM region WHERE region = ?`, [region]);
     return regionResult[0]?.values[0]?.[0];
+  }
+
+  getOrCreateRarityId(rarityName, longName) {
+    this.db.exec(`INSERT OR IGNORE INTO rarity (name, long_name) VALUES (?, ?)`, [rarityName, longName]);
+    const rarityResult = this.db.exec(`SELECT id FROM rarity WHERE name = ? AND long_name = ?`, [rarityName, longName]);
+    return rarityResult[0]?.values[0]?.[0];
+  }
+
+  getOrCreateEditionId(cardId, setId, cardNumber) {
+    this.db.exec(`INSERT OR IGNORE INTO edition (card_id, cardset_id, card_number) VALUES (?, ?, ?)`, [cardId, setId, cardNumber]);
+    const editionResult = this.db.exec(`SELECT id FROM edition WHERE card_id = ? AND cardset_id = ? AND card_number = ?`, [cardId, setId, cardNumber]);
+    return editionResult[0]?.values[0]?.[0];
+  }
+
+  getOrCreatePrintId(editionId, rarityId) {
+    this.db.exec(`INSERT OR IGNORE INTO print (edition_id, rarity_id) VALUES (?, ?)`, [editionId, rarityId]);
+    const printResult = this.db.exec(`SELECT id FROM print WHERE edition_id = ? AND rarity_id = ?`, [editionId, rarityId]);
+    return printResult[0]?.values[0]?.[0];
   }
 
   saveLimitation(banlistId, cardId, listId) {

@@ -43,37 +43,15 @@ export class SetScraper extends BaseScraper {
             urlObj.searchParams.set('request_locale', locale);
             const localizedUrl = urlObj.toString();
 
+            const setId = urlObj.searchParams.get('pid');
+            if (!setId) {
+                throw new Error(`Set ID not found in URL: ${setUrl}`);
+            }
+
             const document = await this.parseHTML(localizedUrl);
 
-            // Try multiple selectors for card IDs
-            let cardIds = [];
-
-            // Method 1: Look for input.link_value (original method)
-            cardIds = [...document.querySelectorAll('input.link_value')]
-                .map(input => {
-                    const match = input.value.match(/cid=(\d+)/);
-                    return match ? match[1] : null;
-                })
-                .filter(id => id !== null);
-
-            // Method 2: Look for links with cid parameter
-            if (cardIds.length === 0) {
-                cardIds = [...document.querySelectorAll('a[href*="cid="]')]
-                    .map(link => {
-                        const match = link.href.match(/cid=(\d+)/);
-                        return match ? match[1] : null;
-                    })
-                    .filter(id => id !== null);
-            }
-
-            // Method 3: Look for input[name="cid"] elements
-            if (cardIds.length === 0) {
-                cardIds = [...document.querySelectorAll('input[name="cid"]')]
-                    .map(input => input.value)
-                    .filter(id => id && id !== '');
-            }
-
-            console.log(`Found ${cardIds.length} cards for set: ${setName}`);
+            // A set may contains multiple art but the info is not available
+            //const artworkIds = [...document.querySelectorAll('.cardimg > img')].map(img => img.src.match(/ciid=(\d+)/)[1]);
 
             // Try multiple selectors for release date
             let releaseDate = null;
@@ -95,23 +73,17 @@ export class SetScraper extends BaseScraper {
                 }
                 console.log(`Release date for ${setName}: ${releaseDate}`);
             } else {
-                console.log(`No release date element found for ${setName}`);
+                console.warn(`No release date element found for ${setName}`);
                 // For promotional sets or sets without release dates, we might need to skip or use a default
                 releaseDate = null;
             }
 
-            // Only insert if we have cards, otherwise skip this set
-            if (cardIds.length > 0) {
-                this.db.insertOrReplaceSetDetails({
-                    setName,
-                    cardIds,
-                    locale,
-                    releaseDate,
-                    cardNumber: ''
-                });
-            } else {
-                console.log(`Skipping set ${setName} - no cards found`);
-            }
+            this.db.insertOrReplaceSetDetails({
+                setId,
+                setName,
+                locale,
+                releaseDate
+            });
         } catch (error) {
             this.handleScrapingError(error, { setName, setUrl, locale });
         }

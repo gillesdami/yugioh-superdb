@@ -62,7 +62,7 @@ CREATE TABLE card(
 -- sets infomations
 
 CREATE TABLE cardset(
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY, -- yugioh db.yugioh-card pack id (pid)
     name TEXT, -- ex: DESTINY SOLDIERS
     release_date DATE,
     lang_id INTEGER,
@@ -73,6 +73,7 @@ CREATE TABLE cardset(
 CREATE TABLE rarity(
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE -- ex: SR
+    long_name TEXT NOT NULL UNIQUE -- ex: Super Rare
 );
 
 
@@ -86,6 +87,7 @@ CREATE TABLE prints(
 );
 
 CREATE TABLE edition(
+    id INTEGER PRIMARY KEY,
     card_id INTEGER, -- REFERENCES card(id)
     cardset_id INTEGER,
     card_number TEXT NOT NULL UNIQUE, -- ex: AP08-EN001
@@ -108,7 +110,7 @@ CREATE TABLE limitation(
 
 CREATE TABLE region(
     id INTEGER PRIMARY KEY,
-    region TEXT NOT NULL UNIQUE -- TCG, OCG, MD
+    region TEXT NOT NULL UNIQUE -- TCG, OCG
 );
 
 CREATE TABLE banlist(
