@@ -144,13 +144,13 @@ export class DbService {
     }
   }
 
-  async getLastProcessedCardId() {
+  getLastProcessedCardId() {
     const result = this.db.exec(`
 SELECT MAX(id) as max_id FROM card`);
     return result.length && result[0].values[0][0] ? result[0].values[0][0] : 4006;
   }
 
-  async validateCardData(cardData) {
+  validateCardData(cardData) {
     // Basic validation
     if (!cardData.id || cardData.id < 4007) {
       throw new Error('Invalid card ID, received: ' + cardData.id);

@@ -136,7 +136,8 @@ export class CardScraper extends BaseScraper {
 
         const types = Array.from(cardElement.querySelectorAll('.species span'))
             .map(span => span.textContent.trim())
-            .filter(type => type !== '／' && type !== '/');
+            .filter(type => type !== '／' && type !== '/')
+            .flatMap(type => type.split('／').map(t => t.trim()));
         const monsterType = types.shift() ?? null
 
         return {
@@ -187,16 +188,34 @@ export class CardScraper extends BaseScraper {
 
     async *scrapeCards(startId = this.START_ID) {
         this.currentId = startId;
+        let consecutiveNoData = 0;
+        const maxConsecutiveNoData = 100; // Stop after 100 consecutive missing cards
 
-        while (true) {
+        while (consecutiveNoData < maxConsecutiveNoData) {
             try {
                 const cardData = await this.scrapeCard(this.currentId);
-                yield cardData;
+                if (cardData && cardData.length > 0) {
+                    yield cardData;
+                    consecutiveNoData = 0; // Reset counter on successful scrape
+                } else {
+                    consecutiveNoData++;
+                }
                 this.currentId++;
             } catch (error) {
+                if (error.message === 'NoDataFound') {
+                    consecutiveNoData++;
+                    this.currentId++;
+                    continue;
+                }
+                
                 this.handleScrapingError(error, { cardId: this.currentId });
-                break;
+                if (process.argv.includes('--stop-on-error')) {
+                    break;
+                }
+                this.currentId++;
             }
         }
+        
+        console.log(`Stopped scraping after ${consecutiveNoData} consecutive cards with no data`);
     }
 }
