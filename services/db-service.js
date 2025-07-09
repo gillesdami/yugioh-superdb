@@ -157,7 +157,7 @@ SELECT MAX(id) as max_id FROM card`);
 
   getOrCreateRarityId(rarityName, longName) {
     this.db.exec(`INSERT OR IGNORE INTO rarity (name, long_name) VALUES (?, ?)`, [rarityName, longName]);
-    const rarityResult = this.db.exec(`SELECT id FROM rarity WHERE name = ? AND long_name = ?`, [rarityName, longName]);
+    const rarityResult = this.db.exec(`SELECT rowid FROM rarity WHERE name = ? AND long_name = ?`, [rarityName, longName]);
     return rarityResult[0]?.values[0]?.[0];
   }
 
@@ -168,8 +168,8 @@ SELECT MAX(id) as max_id FROM card`);
   }
 
   getOrCreatePrintId(editionId, rarityId) {
-    this.db.exec(`INSERT OR IGNORE INTO prints (edition_rowid, rarity_id) VALUES (?, ?)`, [editionId, rarityId]);
-    const printResult = this.db.exec(`SELECT rowid FROM prints WHERE edition_rowid = ? AND rarity_id = ?`, [editionId, rarityId]);
+    this.db.exec(`INSERT OR IGNORE INTO edition_rarity (edition_rowid, rarity_rowid) VALUES (?, ?)`, [editionId, rarityId]);
+    const printResult = this.db.exec(`SELECT rowid FROM edition_rarity WHERE edition_rowid = ? AND rarity_rowid = ?`, [editionId, rarityId]);
     return printResult[0]?.values[0]?.[0];
   }
 

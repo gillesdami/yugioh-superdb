@@ -71,25 +71,26 @@ CREATE TABLE cardset(
 );
 
 CREATE TABLE rarity(
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE, -- ex: SR
-    long_name TEXT NOT NULL UNIQUE -- ex: Super Rare
+    name TEXT NOT NULL, -- ex: SR
+    long_name TEXT NOT NULL, -- ex: Super Rare
+
+    PRIMARY KEY (name, long_name)
 );
 
 
-CREATE TABLE prints(
+CREATE TABLE edition_rarity(
     edition_rowid INTEGER,
-    rarity_id INTEGER,
+    rarity_rowid INTEGER,
 
-    PRIMARY KEY (edition_rowid, rarity_id),
+    PRIMARY KEY (edition_rowid, rarity_rowid),
     FOREIGN KEY(edition_rowid) REFERENCES edition(rowid),
-    FOREIGN KEY(rarity_id) REFERENCES rarity(id)
+    FOREIGN KEY(rarity_rowid) REFERENCES rarity(rowid)
 );
 
 CREATE TABLE edition(
     card_id INTEGER, -- REFERENCES card(id)
     cardset_id INTEGER,
-    card_number TEXT NOT NULL UNIQUE, -- ex: AP08-EN001
+    card_number TEXT NOT NULL, -- ex: AP08-EN001
 
     PRIMARY KEY (card_id, cardset_id, card_number),
     FOREIGN KEY(card_id) REFERENCES card(id),
