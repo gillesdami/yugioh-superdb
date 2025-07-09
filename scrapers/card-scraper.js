@@ -49,8 +49,8 @@ export class CardScraper extends BaseScraper {
     extractEditions(document) {
         //ex [ [["R", "C"], ["Rare", "Common"]], [["UR"], ["Ultra Rare"]], ...]
         const rarities = [...document.querySelectorAll('.rarity')].map(d => [
-            [...d.querySelectorAll("p")].map(p => p.innerText.trim()),
-            [...d.querySelectorAll("span")].map(s => s.innerText.trim())
+            [...d.querySelectorAll("p")].map(p => p.textContent.trim()),
+            [...d.querySelectorAll("span")].map(s => s.textContent.trim())
         ])
         const cardNumbers = [...document.querySelectorAll('.card_number')].map(el => el.textContent.trim());
         const setIds = [...document.querySelectorAll('.pack_name ~ .link_value')].map(input => {

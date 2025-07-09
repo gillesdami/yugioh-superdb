@@ -25,14 +25,13 @@ export class BanlistScraper extends BaseScraper {
             for (const date of dates) {
                 if (this.db.getBanlistId(date, region) === undefined) {
                     console.log(`Scraping banlist for ${region} at date ${date}...`);
-                    await this.scrapeBanlist(date, locale);
+                    await this.scrapeBanlist(date, locale, region);
                 }
             }
         }
     }
 
-    async scrapeBanlist(date, locale) {
-        const region = this.getRegion(locale);
+    async scrapeBanlist(date, locale, region) {
         const url = `https://www.db.yugioh-card.com/yugiohdb/forbidden_limited.action?forbiddenLimitedDate=${date}&request_locale=${locale}`;
 
         try {

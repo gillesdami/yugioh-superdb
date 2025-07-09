@@ -5,14 +5,8 @@ export class DbService {
     this.db = await loadDb();
   }
 
-  setExists(setName, locale) {
-    const result = this.db.exec(`
-        SELECT id FROM cardset
-        WHERE name = ? AND lang_id = (
-            SELECT id FROM lang WHERE abbr = ?
-        )
-    `, [setName, locale]);
-
+  setExists(setId) {
+    const result = this.db.exec(`SELECT id FROM cardset WHERE id = ?`, [setId]);
     return result[0]?.values[0]?.[0] !== undefined;
   }
 
@@ -25,7 +19,7 @@ export class DbService {
       const langResult = this.db.exec(`SELECT id FROM lang WHERE abbr = ?`, [setDetails.locale]);
       const langId = langResult[0]?.values[0]?.[0];
 
-      this.db.exec(`INSERT OR IGNORE INTO cardset (id, name, release_date, lang_id) VALUES (?, ?, ?, ?)`, [setId, setDetails.setName, setDetails.releaseDate, langId]);
+      this.db.exec(`INSERT OR IGNORE INTO cardset (id, name, release_date, lang_id) VALUES (?, ?, ?, ?)`, [setDetails.setId, setDetails.setName, setDetails.releaseDate, langId]);
 
       this.db.exec('COMMIT');
       saveDb(this.db);
@@ -101,11 +95,12 @@ export class DbService {
 
       for (let i = 0; i < cardData.editions.length; i++) {
         const { setId, cardNumber, rarityNames, rarityLongNames } = cardData.editions[i];
-        const editionId = getOrCreateEditionId(cardData.id, setId, cardNumber);
+        const editionId = this.getOrCreateEditionId(cardData.id, setId, cardNumber);
 
         for (let j = 0; j < rarityNames.length; j++) {
           const rarityName = rarityNames[j];
           const rarityLongName = rarityLongNames[j];
+
           const rarityId = this.getOrCreateRarityId(rarityName, rarityLongName);
           this.getOrCreatePrintId(editionId, rarityId);
         }
@@ -168,13 +163,13 @@ SELECT MAX(id) as max_id FROM card`);
 
   getOrCreateEditionId(cardId, setId, cardNumber) {
     this.db.exec(`INSERT OR IGNORE INTO edition (card_id, cardset_id, card_number) VALUES (?, ?, ?)`, [cardId, setId, cardNumber]);
-    const editionResult = this.db.exec(`SELECT id FROM edition WHERE card_id = ? AND cardset_id = ? AND card_number = ?`, [cardId, setId, cardNumber]);
+    const editionResult = this.db.exec(`SELECT rowid FROM edition WHERE card_id = ? AND cardset_id = ? AND card_number = ?`, [cardId, setId, cardNumber]);
     return editionResult[0]?.values[0]?.[0];
   }
 
   getOrCreatePrintId(editionId, rarityId) {
-    this.db.exec(`INSERT OR IGNORE INTO print (edition_id, rarity_id) VALUES (?, ?)`, [editionId, rarityId]);
-    const printResult = this.db.exec(`SELECT id FROM print WHERE edition_id = ? AND rarity_id = ?`, [editionId, rarityId]);
+    this.db.exec(`INSERT OR IGNORE INTO prints (edition_rowid, rarity_id) VALUES (?, ?)`, [editionId, rarityId]);
+    const printResult = this.db.exec(`SELECT rowid FROM prints WHERE edition_rowid = ? AND rarity_id = ?`, [editionId, rarityId]);
     return printResult[0]?.values[0]?.[0];
   }
 

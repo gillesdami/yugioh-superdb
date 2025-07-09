@@ -21,13 +21,17 @@ export class SetScraper extends BaseScraper {
                 for (let i = 0; i < sets.length; i++) {
                     const [setName, setUrl] = sets[i];
 
-                    // Check if set already exists
-                    if (this.db.setExists(setName, locale)) {
+                    const urlObj = new URL(setUrl);
+                    urlObj.searchParams.set('request_locale', locale);
+                    const localizedUrl = urlObj.toString();
+                    const setId = urlObj.searchParams.get('pid');
+
+                    if (this.db.setExists(setId)) {
                         console.log(`Set ${setName} (${locale}) already exists - skipping`);
                         continue;
                     }
 
-                    await this.scrapeSetDetails(setName, setUrl, locale);
+                    await this.scrapeSetDetails(setName, localizedUrl, setId, locale);
                     console.log(`Scraped set details for ${setName} (${locale}) - ${i + 1}/${sets.length}`);
                 }
             } catch (error) {
@@ -36,19 +40,9 @@ export class SetScraper extends BaseScraper {
         }
     }
 
-    async scrapeSetDetails(setName, setUrl, locale) {
+    async scrapeSetDetails(setName, setUrl, setId, locale) {
         try {
-            // Ensure we add the locale parameter to the URL
-            const urlObj = new URL(setUrl);
-            urlObj.searchParams.set('request_locale', locale);
-            const localizedUrl = urlObj.toString();
-
-            const setId = urlObj.searchParams.get('pid');
-            if (!setId) {
-                throw new Error(`Set ID not found in URL: ${setUrl}`);
-            }
-
-            const document = await this.parseHTML(localizedUrl);
+            const document = await this.parseHTML(setUrl);
 
             // A set may contains multiple art but the info is not available
             //const artworkIds = [...document.querySelectorAll('.cardimg > img')].map(img => img.src.match(/ciid=(\d+)/)[1]);
