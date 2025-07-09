@@ -31,6 +31,18 @@ export class TranslationScraper extends BaseScraper {
                 cn: 'Trap',
             }
         };
+        this.SPECIAL_SUMMON_TRANSLATIONS = {
+            ja: '特殊召喚',
+            ko: '특수 소환',
+            ae: 'Special summon',
+            en: 'Special summon',
+            de: 'Spezialbeschwörung',
+            fr: 'Invocation Spéciale',
+            it: 'Evocazione Speciale',
+            es: 'Invocación Especial',
+            pt: 'Invocação Especial',
+            cn: '特殊召唤',
+        };
     }
 
     async extractTranslationData(document) {
@@ -65,6 +77,8 @@ export class TranslationScraper extends BaseScraper {
                 for (const [transationName, localeMap] of Object.entries(this.PRESET_TRANSLATIONS)) {
                     data[transationName] = localeMap[locale];
                 }
+
+                data.type[16] = data.type[16] ?? this.SPECIAL_SUMMON_TRANSLATIONS[locale];
 
                 results[locale] = data;
             }

@@ -53,25 +53,17 @@ export class CardScraper extends BaseScraper {
             [...d.querySelectorAll("span")].map(s => s.innerText.trim())
         ])
         const cardNumbers = [...document.querySelectorAll('.card_number')].map(el => el.textContent.trim());
-        // <input type="hidden" class="link_value" value="/yugiohdb/card_search.action?ope=1&amp;sess=1&amp;pid=2000001456000&amp;rp=99999">
         const setIds = [...document.querySelectorAll('.pack_name ~ .link_value')].map(input => {
             const match = input.value.match(/pid=(\d+)/);
             return match ? match[1] : null;
         });
 
-        return rarities.map((rarity, i) => {
-            const rarityNames = rarity[0];
-            const rarityLongNames = rarity[1];
-            const setId = setIds[i] || null;
-            const cardNumber = cardNumbers[i] || '';
-
-            return {
-                rarityNames: rarityNames,
-                rarityLongNames: rarityLongNames,
-                setId,
-                cardNumber,
-            };
-        });
+        return rarities.map((rarity, i) => ({
+            rarityNames: rarity[0],
+            rarityLongNames: rarity[1],
+            setId: setIds[i],
+            cardNumber: cardNumbers[i],
+        }));
     }
 
     translateScrapedCard(cardData, locale) {
@@ -236,7 +228,7 @@ export class CardScraper extends BaseScraper {
                     this.currentId++;
                     continue;
                 }
-                
+
                 this.handleScrapingError(error, { cardId: this.currentId });
                 if (process.argv.includes('--stop-on-error')) {
                     break;
@@ -244,7 +236,7 @@ export class CardScraper extends BaseScraper {
                 this.currentId++;
             }
         }
-        
+
         console.log(`Stopped scraping after ${consecutiveNoData} consecutive cards with no data`);
     }
 }

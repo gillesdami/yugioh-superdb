@@ -74,8 +74,6 @@ export class SetScraper extends BaseScraper {
                 console.log(`Release date for ${setName}: ${releaseDate}`);
             } else {
                 console.warn(`No release date element found for ${setName}`);
-                // For promotional sets or sets without release dates, we might need to skip or use a default
-                releaseDate = null;
             }
 
             this.db.insertOrReplaceSetDetails({

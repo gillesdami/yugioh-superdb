@@ -28,7 +28,7 @@ export class SyncService {
                 } catch (error) {
                     errorCount++;
                     console.error(`Error processing card ${cardData.id} in lang ${cardData.locale}:`, error.message);
-                    
+
                     if (process.argv.includes('--stop-on-error')) {
                         throw error;
                     }

@@ -4,7 +4,6 @@ import { setTimeout } from 'timers/promises';
 export class BaseScraper {
     constructor() {
         this.MAX_RETRIES = 3;
-        this.RETRY_DELAY = 1000;
         this.LOCALES = ['en', 'fr', 'ja', 'de', 'ae', 'cn', 'es', 'it', 'ko', 'pt'];
     }
 
@@ -15,7 +14,7 @@ export class BaseScraper {
             return await response.text();
         } catch (error) {
             if (retries > 0) {
-                await setTimeout(this.RETRY_DELAY);
+                await setTimeout(0);
                 return this.fetchWithRetry(url, retries - 1);
             }
             throw error;
@@ -45,7 +44,7 @@ export class BaseScraper {
             timestamp: new Date().toISOString(),
             ...context
         };
-        // TODO: Implement error logging
+
         console.error('Scraping Error:', errorData, error);
 
         if (process.argv.includes('--stop-on-error')) {

@@ -13,16 +13,14 @@ export class BanlistScraper extends BaseScraper {
         return Array.from(options).map(option => option.value);
     }
 
-    getRegion(locale) {
-        return locale === 'ja' ? 'OCG' : 'TCG';
-    }
-
     async scrapeBanlists() {
-        const locales = ['en', 'ja'];
+        const scopes = [
+            ['ja', 'OCG'],
+            ['en', 'TCG'],
+        ];
 
-        for (const locale of locales) {
+        for (const [locale, region] of scopes) {
             const dates = await this.fetchBanlistDates(locale);
-            const region = this.getRegion(locale);
 
             for (const date of dates) {
                 if (this.db.getBanlistId(date, region) === undefined) {
