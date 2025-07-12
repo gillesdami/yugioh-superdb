@@ -159,22 +159,30 @@ jobs:
         HAS_ERRORS=false
         
         if [ -f sync_output.log ]; then
-          if grep -i "warning\|warn" sync_output.log > /dev/null; then
+          # Check for warnings (excluding normal "no data found" messages)
+          if grep -i "warning\|warn" sync_output.log | grep -v "no data found" > /dev/null; then
             HAS_WARNINGS=true
           fi
-          if grep -i "error\|fatal\|exception" sync_output.log > /dev/null; then
+          # Check for errors (excluding normal "no data found" messages)
+          if grep -i "error\|fatal\|exception" sync_output.log | grep -v "no data found" > /dev/null; then
             HAS_ERRORS=true
           fi
         fi
         
         if [ -f sync_error.log ] && [ -s sync_error.log ]; then
-          HAS_ERRORS=true
+          # Check if stderr contains actual errors (not just "no data found" messages)
+          if grep -v "no data found" sync_error.log | grep -i "error\|fatal\|exception" > /dev/null; then
+            HAS_ERRORS=true
+          elif grep -v "no data found" sync_error.log | grep -v "^$" > /dev/null; then
+            # If there's other content besides "no data found" and empty lines, treat as warnings
+            HAS_WARNINGS=true
+          fi
         fi
         
         echo "HAS_WARNINGS=$HAS_WARNINGS" >> $GITHUB_ENV
         echo "HAS_ERRORS=$HAS_ERRORS" >> $GITHUB_ENV
         
-        # Combine logs for email
+        # Combine logs for email (filter out excessive "no data found" messages)
         {
           echo "=== STDOUT OUTPUT ==="
           if [ -f sync_output.log ]; then
@@ -185,7 +193,19 @@ jobs:
           echo ""
           echo "=== STDERR OUTPUT ==="
           if [ -f sync_error.log ]; then
-            cat sync_error.log
+            # Show only first and last few "no data found" messages to avoid spam
+            no_data_count=$(grep -c "no data found" sync_error.log || echo "0")
+            if [ "$no_data_count" -gt 20 ]; then
+              echo "Found $no_data_count 'no data found' messages (showing first 10 and last 10):"
+              grep "no data found" sync_error.log | head -10
+              echo "... ($((no_data_count - 20)) messages omitted) ..."
+              grep "no data found" sync_error.log | tail -10
+              echo ""
+              echo "Other stderr content:"
+              grep -v "no data found" sync_error.log || echo "No other stderr content"
+            else
+              cat sync_error.log
+            fi
           else
             echo "No stderr output captured"
           fi
@@ -197,15 +217,26 @@ jobs:
           DB_HASH_AFTER=$(sha256sum ${{ env.DATABASE_FILE }} | cut -d' ' -f1)
           echo "DB_HASH_AFTER=$DB_HASH_AFTER" >> $GITHUB_ENV
           
-          if [ "${{ env.DB_HASH_BEFORE }}" != "$DB_HASH_AFTER" ]; then
+          # Check if this is a bootstrap scenario (no previous releases)
+          LATEST_RELEASE_CHECK=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest" || echo "null")
+          
+          if echo "$LATEST_RELEASE_CHECK" | grep -q '"message": "Not Found"' || [ "$LATEST_RELEASE_CHECK" = "null" ]; then
             echo "DATABASE_CHANGED=true" >> $GITHUB_ENV
+            echo "BOOTSTRAP_RELEASE=true" >> $GITHUB_ENV
+            echo "No previous releases found - treating as bootstrap release"
+          elif [ "${{ env.DB_HASH_BEFORE }}" != "$DB_HASH_AFTER" ]; then
+            echo "DATABASE_CHANGED=true" >> $GITHUB_ENV
+            echo "BOOTSTRAP_RELEASE=false" >> $GITHUB_ENV
             echo "Database has changed - new release will be created"
           else
             echo "DATABASE_CHANGED=false" >> $GITHUB_ENV
+            echo "BOOTSTRAP_RELEASE=false" >> $GITHUB_ENV
             echo "No database changes detected"
           fi
         else
           echo "DATABASE_CHANGED=false" >> $GITHUB_ENV
+          echo "BOOTSTRAP_RELEASE=false" >> $GITHUB_ENV
           echo "Database file not found after sync"
         fi
         
@@ -287,13 +318,14 @@ jobs:
           - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           - Database hash: ${{ env.DB_HASH_AFTER }}
           - Database source: ${{ env.DATABASE_SOURCE }}
+          - Bootstrap release: ${{ env.BOOTSTRAP_RELEASE }}
           
           **Database Statistics:**
           ${{ steps.stats.outputs.stats || 'Statistics not available' }}
           
           **Changes:**
           - Database file updated with latest card data
-          - Previous database hash: ${{ env.DB_HASH_BEFORE }}
+          - Previous database hash: ${{ env.DB_HASH_BEFORE || 'None (bootstrap)' }}
           - New database hash: ${{ env.DB_HASH_AFTER }}
           
           Download the `yugioh-superdb.sqlite` file below to get the latest database.

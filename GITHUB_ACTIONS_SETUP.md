@@ -132,13 +132,15 @@ SMTP_FROM: yugioh-notifications@yourdomain.com
   - Downloads latest database from previous release before sync
   - Falls back to `yugioh-superdb-v0.sqlite` for bootstrapping
   - Creates fresh database if no previous versions exist
+  - Forces creation of initial release when no previous releases exist (bootstrap)
 
 ### 📋 **Comprehensive Logging**
 
 - Captures both stdout and stderr
-- Monitors for warnings and errors in output
+- Monitors for warnings and errors in output (excludes normal "no data found" messages)
 - Includes database statistics in releases
 - Full logs attached to email notifications
+- Filters excessive "no data found" messages in email attachments for readability
 
 ## Manual Testing
 
