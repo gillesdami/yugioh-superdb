@@ -1,5 +1,4 @@
 node_modules
-*.sqlite
-!*-v*.sqlite
+yugioh-superdb.sqlite
 .vscode
 *.log

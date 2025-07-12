@@ -130,9 +130,7 @@ SMTP_FROM: yugioh-notifications@yourdomain.com
 - Backup creation for safety
 - **Database Management**:
   - Downloads latest database from previous release before sync
-  - Falls back to `yugioh-superdb-v0.sqlite` for bootstrapping
   - Creates fresh database if no previous versions exist
-  - Forces creation of initial release when no previous releases exist (bootstrap)
 
 ### 📋 **Comprehensive Logging**
 
@@ -181,9 +179,8 @@ This will trigger the workflow immediately for testing purposes.
 ### Database Download Issues
 
 1. Verify that previous releases contain the database file
-2. Check if the bootstrap file `yugioh-superdb-v0.sqlite` exists in the repository
+2. Check network connectivity for downloading from GitHub releases
 3. Ensure the GitHub token has access to read releases
-4. Check network connectivity for downloading from GitHub releases
 
 ## Security Notes
 

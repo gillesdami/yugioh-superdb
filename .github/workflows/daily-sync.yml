@@ -45,23 +45,15 @@ jobs:
           exit 0
         fi
         
-        # Try to get the latest release
+        # Get the latest release
         echo "Fetching latest release information..."
         LATEST_RELEASE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          "https://api.github.com/repos/${{ github.repository }}/releases/latest" || echo "null")
+          "https://api.github.com/repos/${{ github.repository }}/releases/latest")
         
-        if echo "$LATEST_RELEASE" | grep -q '"message": "Not Found"' || [ "$LATEST_RELEASE" = "null" ]; then
-          echo "No previous releases found, checking for bootstrap database..."
-          
-          # Use bootstrap database if available
-          if [ -f "yugioh-superdb-v0.sqlite" ]; then
-            echo "Using bootstrap database: yugioh-superdb-v0.sqlite"
-            cp "yugioh-superdb-v0.sqlite" "${{ env.DATABASE_FILE }}"
-            echo "Bootstrap database copied successfully"
-          else
-            echo "No bootstrap database found either. Starting with fresh database."
-            echo "The sync script should handle creating a new database."
-          fi
+        if echo "$LATEST_RELEASE" | grep -q '"message": "Not Found"'; then
+          echo "No previous releases found. Starting with fresh database."
+          echo "The sync script should handle creating a new database."
+          echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
         else
           # Extract download URL for the database file
           DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name == "${{ env.DATABASE_FILE }}") | .browser_download_url')
@@ -76,43 +68,20 @@ jobs:
               # Verify the downloaded file
               if [ -f "${{ env.DATABASE_FILE }}" ] && [ -s "${{ env.DATABASE_FILE }}" ]; then
                 echo "Downloaded database file size: $(ls -lh ${{ env.DATABASE_FILE }} | awk '{print $5}')"
+                echo "DATABASE_SOURCE=downloaded" >> $GITHUB_ENV
               else
                 echo "Warning: Downloaded file appears to be empty or invalid"
                 rm -f "${{ env.DATABASE_FILE }}"
+                echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
               fi
             else
               echo "Failed to download database from latest release"
-              
-              # Fallback to bootstrap database
-              if [ -f "yugioh-superdb-v0.sqlite" ]; then
-                echo "Falling back to bootstrap database"
-                cp "yugioh-superdb-v0.sqlite" "${{ env.DATABASE_FILE }}"
-                echo "Bootstrap database copied as fallback"
-              else
-                echo "No fallback database available"
-              fi
+              echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
             fi
           else
             echo "Database file not found in latest release assets"
-            
-            # Fallback to bootstrap database
-            if [ -f "yugioh-superdb-v0.sqlite" ]; then
-              echo "Using bootstrap database as fallback"
-              cp "yugioh-superdb-v0.sqlite" "${{ env.DATABASE_FILE }}"
-              echo "Bootstrap database copied as fallback"
-            else
-              echo "No bootstrap database available for fallback"
-            fi
+            echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
           fi
-        fi
-        
-        # Final status check
-        if [ -f "${{ env.DATABASE_FILE }}" ]; then
-          echo "DATABASE_SOURCE=existing_or_downloaded" >> $GITHUB_ENV
-          echo "Ready to proceed with existing/downloaded database"
-        else
-          echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
-          echo "Will proceed with fresh database creation"
         fi
       
     - name: Backup existing database
@@ -217,26 +186,15 @@ jobs:
           DB_HASH_AFTER=$(sha256sum ${{ env.DATABASE_FILE }} | cut -d' ' -f1)
           echo "DB_HASH_AFTER=$DB_HASH_AFTER" >> $GITHUB_ENV
           
-          # Check if this is a bootstrap scenario (no previous releases)
-          LATEST_RELEASE_CHECK=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/latest" || echo "null")
-          
-          if echo "$LATEST_RELEASE_CHECK" | grep -q '"message": "Not Found"' || [ "$LATEST_RELEASE_CHECK" = "null" ]; then
+          if [ "${{ env.DB_HASH_BEFORE }}" != "$DB_HASH_AFTER" ]; then
             echo "DATABASE_CHANGED=true" >> $GITHUB_ENV
-            echo "BOOTSTRAP_RELEASE=true" >> $GITHUB_ENV
-            echo "No previous releases found - treating as bootstrap release"
-          elif [ "${{ env.DB_HASH_BEFORE }}" != "$DB_HASH_AFTER" ]; then
-            echo "DATABASE_CHANGED=true" >> $GITHUB_ENV
-            echo "BOOTSTRAP_RELEASE=false" >> $GITHUB_ENV
             echo "Database has changed - new release will be created"
           else
             echo "DATABASE_CHANGED=false" >> $GITHUB_ENV
-            echo "BOOTSTRAP_RELEASE=false" >> $GITHUB_ENV
             echo "No database changes detected"
           fi
         else
           echo "DATABASE_CHANGED=false" >> $GITHUB_ENV
-          echo "BOOTSTRAP_RELEASE=false" >> $GITHUB_ENV
           echo "Database file not found after sync"
         fi
         
@@ -318,14 +276,13 @@ jobs:
           - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           - Database hash: ${{ env.DB_HASH_AFTER }}
           - Database source: ${{ env.DATABASE_SOURCE }}
-          - Bootstrap release: ${{ env.BOOTSTRAP_RELEASE }}
           
           **Database Statistics:**
           ${{ steps.stats.outputs.stats || 'Statistics not available' }}
           
           **Changes:**
           - Database file updated with latest card data
-          - Previous database hash: ${{ env.DB_HASH_BEFORE || 'None (bootstrap)' }}
+          - Previous database hash: ${{ env.DB_HASH_BEFORE || 'None' }}
           - New database hash: ${{ env.DB_HASH_AFTER }}
           
           Download the `yugioh-superdb.sqlite` file below to get the latest database.
