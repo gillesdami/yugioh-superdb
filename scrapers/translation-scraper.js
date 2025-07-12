@@ -43,6 +43,10 @@ export class TranslationScraper extends BaseScraper {
             pt: 'Invocação Especial',
             cn: '特殊召唤',
         };
+        this.finalOverrides = (results) => {
+            results.it.type[5] = "Spirito";
+            results.pt.type[6] = "União";
+        };
     }
 
     async extractTranslationData(document) {
@@ -83,6 +87,8 @@ export class TranslationScraper extends BaseScraper {
                 results[locale] = data;
             }
         }
+
+        this.finalOverrides(results);
 
         return results;
     }
