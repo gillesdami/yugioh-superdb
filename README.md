@@ -10,11 +10,20 @@ The goal is to create a sql light database of data related to yugioh cards by sc
 This repository includes GitHub Actions automation that:
 
 - ✅ Runs daily at 2:00 AM UTC to sync the database
+- ✅ Downloads the latest database from previous releases before syncing
+- ✅ Falls back to `yugioh-superdb-v0.sqlite` for bootstrapping
 - ✅ Creates releases when database changes are detected  
 - ✅ Sends email notifications for updates, failures, and warnings
 - ✅ Includes full logs and database statistics
 
 See `GITHUB_ACTIONS_SETUP.md` for configuration instructions.
+
+**Database Flow:**
+
+1. Downloads latest `yugioh-superdb.sqlite` from the most recent release
+2. If no releases exist, uses `yugioh-superdb-v0.sqlite` as bootstrap
+3. Runs the sync script to update the database
+4. Creates a new release if changes are detected
 
 ## Manual Usage
 

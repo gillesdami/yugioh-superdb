@@ -35,6 +35,86 @@ jobs:
     - name: Install dependencies
       run: yarn install --frozen-lockfile
       
+    - name: Download latest database from previous release
+      run: |
+        echo "Checking for existing database and latest release..."
+        
+        # If database already exists, skip download
+        if [ -f "${{ env.DATABASE_FILE }}" ]; then
+          echo "Database file already exists, skipping download"
+          exit 0
+        fi
+        
+        # Try to get the latest release
+        echo "Fetching latest release information..."
+        LATEST_RELEASE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/latest" || echo "null")
+        
+        if echo "$LATEST_RELEASE" | grep -q '"message": "Not Found"' || [ "$LATEST_RELEASE" = "null" ]; then
+          echo "No previous releases found, checking for bootstrap database..."
+          
+          # Use bootstrap database if available
+          if [ -f "yugioh-superdb-v0.sqlite" ]; then
+            echo "Using bootstrap database: yugioh-superdb-v0.sqlite"
+            cp "yugioh-superdb-v0.sqlite" "${{ env.DATABASE_FILE }}"
+            echo "Bootstrap database copied successfully"
+          else
+            echo "No bootstrap database found either. Starting with fresh database."
+            echo "The sync script should handle creating a new database."
+          fi
+        else
+          # Extract download URL for the database file
+          DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name == "${{ env.DATABASE_FILE }}") | .browser_download_url')
+          
+          if [ "$DOWNLOAD_URL" != "null" ] && [ -n "$DOWNLOAD_URL" ]; then
+            echo "Downloading database from latest release..."
+            echo "Download URL: $DOWNLOAD_URL"
+            
+            if curl -L -f -o "${{ env.DATABASE_FILE }}" "$DOWNLOAD_URL"; then
+              echo "Database downloaded successfully from latest release"
+              
+              # Verify the downloaded file
+              if [ -f "${{ env.DATABASE_FILE }}" ] && [ -s "${{ env.DATABASE_FILE }}" ]; then
+                echo "Downloaded database file size: $(ls -lh ${{ env.DATABASE_FILE }} | awk '{print $5}')"
+              else
+                echo "Warning: Downloaded file appears to be empty or invalid"
+                rm -f "${{ env.DATABASE_FILE }}"
+              fi
+            else
+              echo "Failed to download database from latest release"
+              
+              # Fallback to bootstrap database
+              if [ -f "yugioh-superdb-v0.sqlite" ]; then
+                echo "Falling back to bootstrap database"
+                cp "yugioh-superdb-v0.sqlite" "${{ env.DATABASE_FILE }}"
+                echo "Bootstrap database copied as fallback"
+              else
+                echo "No fallback database available"
+              fi
+            fi
+          else
+            echo "Database file not found in latest release assets"
+            
+            # Fallback to bootstrap database
+            if [ -f "yugioh-superdb-v0.sqlite" ]; then
+              echo "Using bootstrap database as fallback"
+              cp "yugioh-superdb-v0.sqlite" "${{ env.DATABASE_FILE }}"
+              echo "Bootstrap database copied as fallback"
+            else
+              echo "No bootstrap database available for fallback"
+            fi
+          fi
+        fi
+        
+        # Final status check
+        if [ -f "${{ env.DATABASE_FILE }}" ]; then
+          echo "DATABASE_SOURCE=existing_or_downloaded" >> $GITHUB_ENV
+          echo "Ready to proceed with existing/downloaded database"
+        else
+          echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
+          echo "Will proceed with fresh database creation"
+        fi
+      
     - name: Backup existing database
       run: |
         if [ -f "${{ env.DATABASE_FILE }}" ]; then
@@ -206,6 +286,7 @@ jobs:
           - Generated on: ${{ github.run_id }}
           - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           - Database hash: ${{ env.DB_HASH_AFTER }}
+          - Database source: ${{ env.DATABASE_SOURCE }}
           
           **Database Statistics:**
           ${{ steps.stats.outputs.stats || 'Statistics not available' }}
@@ -245,6 +326,7 @@ jobs:
           - Sync completed successfully
           - Database changes detected and saved
           - Release created with updated database file
+          - Database source: ${{ env.DATABASE_SOURCE }}
           
           🔗 **Links:**
           - Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.RELEASE_VERSION }}

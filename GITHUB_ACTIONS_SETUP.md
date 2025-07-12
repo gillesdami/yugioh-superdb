@@ -128,6 +128,10 @@ SMTP_FROM: yugioh-notifications@yourdomain.com
 - Compares SHA256 hash of database file before/after sync
 - No unnecessary releases for unchanged databases
 - Backup creation for safety
+- **Database Management**:
+  - Downloads latest database from previous release before sync
+  - Falls back to `yugioh-superdb-v0.sqlite` for bootstrapping
+  - Creates fresh database if no previous versions exist
 
 ### 📋 **Comprehensive Logging**
 
@@ -171,6 +175,13 @@ This will trigger the workflow immediately for testing purposes.
 1. Verify the sync script runs without errors locally
 2. Check if the website structure has changed
 3. Review scraping logs for blocked requests or rate limiting
+
+### Database Download Issues
+
+1. Verify that previous releases contain the database file
+2. Check if the bootstrap file `yugioh-superdb-v0.sqlite` exists in the repository
+3. Ensure the GitHub token has access to read releases
+4. Check network connectivity for downloading from GitHub releases
 
 ## Security Notes
 
