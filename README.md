@@ -5,6 +5,27 @@ The goal is to create a sql light database of data related to yugioh cards by sc
 - The code must be written in js and executed with nodejs.
 - The code must allow iterative addition to the resulting data base, so that if data where to be added to the yugiohdb they could be added to the sql database without scrapping the whole site again.
 
+## Automated Daily Updates
+
+This repository includes GitHub Actions automation that:
+
+- ✅ Runs daily at 2:00 AM UTC to sync the database
+- ✅ Creates releases when database changes are detected  
+- ✅ Sends email notifications for updates, failures, and warnings
+- ✅ Includes full logs and database statistics
+
+See `GITHUB_ACTIONS_SETUP.md` for configuration instructions.
+
+## Manual Usage
+
+Run the sync script locally:
+
+```bash
+npm start          # Run original sync script
+npm run sync       # Run enhanced sync with better logging
+node verify-setup.js  # Verify GitHub Actions setup
+```
+
 ## The model
 
 The tables of the database are defined in `db\genTables.sql`. The database can initially be generated with the script `db\genTables.js`.

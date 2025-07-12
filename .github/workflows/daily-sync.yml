@@ -1,0 +1,332 @@
+name: Daily Yu-Gi-Oh Database Sync
+
+on:
+  schedule:
+    # Run daily at 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual trigger
+  push:
+    branches: [ main, master ]
+    paths: 
+      - '.github/workflows/daily-sync.yml'
+      - 'package.json'
+
+env:
+  NODE_VERSION: '18'
+  DATABASE_FILE: 'yugioh-superdb.sqlite'
+
+jobs:
+  sync-database:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Full history for proper change detection
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Backup existing database
+      run: |
+        if [ -f "${{ env.DATABASE_FILE }}" ]; then
+          cp "${{ env.DATABASE_FILE }}" "${DATABASE_FILE}.backup"
+          echo "DATABASE_BACKUP_EXISTS=true" >> $GITHUB_ENV
+        else
+          echo "DATABASE_BACKUP_EXISTS=false" >> $GITHUB_ENV
+        fi
+        
+    - name: Get database hash before sync
+      run: |
+        if [ -f "${{ env.DATABASE_FILE }}" ]; then
+          echo "DB_HASH_BEFORE=$(sha256sum ${{ env.DATABASE_FILE }} | cut -d' ' -f1)" >> $GITHUB_ENV
+        else
+          echo "DB_HASH_BEFORE=none" >> $GITHUB_ENV
+        fi
+        
+    - name: Run database sync
+      id: sync
+      run: |
+        # Capture both stdout and stderr with timestamps
+        exec > >(tee -a sync_output.log)
+        exec 2> >(tee -a sync_error.log >&2)
+        
+        echo "=== Yu-Gi-Oh Database Sync Started at $(date) ==="
+        
+        # Run the enhanced sync script and capture exit code
+        if node index-enhanced.js; then
+          echo "SYNC_SUCCESS=true" >> $GITHUB_ENV
+          echo "=== Sync completed successfully at $(date) ==="
+        else
+          echo "SYNC_SUCCESS=false" >> $GITHUB_ENV
+          echo "=== Sync failed at $(date) ==="
+          exit 1
+        fi
+      continue-on-error: true
+      
+    - name: Analyze logs for warnings and errors
+      run: |
+        # Check for warnings and errors in the output
+        HAS_WARNINGS=false
+        HAS_ERRORS=false
+        
+        if [ -f sync_output.log ]; then
+          if grep -i "warning\|warn" sync_output.log > /dev/null; then
+            HAS_WARNINGS=true
+          fi
+          if grep -i "error\|fatal\|exception" sync_output.log > /dev/null; then
+            HAS_ERRORS=true
+          fi
+        fi
+        
+        if [ -f sync_error.log ] && [ -s sync_error.log ]; then
+          HAS_ERRORS=true
+        fi
+        
+        echo "HAS_WARNINGS=$HAS_WARNINGS" >> $GITHUB_ENV
+        echo "HAS_ERRORS=$HAS_ERRORS" >> $GITHUB_ENV
+        
+        # Combine logs for email
+        {
+          echo "=== STDOUT OUTPUT ==="
+          if [ -f sync_output.log ]; then
+            cat sync_output.log
+          else
+            echo "No stdout output captured"
+          fi
+          echo ""
+          echo "=== STDERR OUTPUT ==="
+          if [ -f sync_error.log ]; then
+            cat sync_error.log
+          else
+            echo "No stderr output captured"
+          fi
+        } > combined_logs.txt
+        
+    - name: Check for database changes
+      run: |
+        if [ -f "${{ env.DATABASE_FILE }}" ]; then
+          DB_HASH_AFTER=$(sha256sum ${{ env.DATABASE_FILE }} | cut -d' ' -f1)
+          echo "DB_HASH_AFTER=$DB_HASH_AFTER" >> $GITHUB_ENV
+          
+          if [ "${{ env.DB_HASH_BEFORE }}" != "$DB_HASH_AFTER" ]; then
+            echo "DATABASE_CHANGED=true" >> $GITHUB_ENV
+            echo "Database has changed - new release will be created"
+          else
+            echo "DATABASE_CHANGED=false" >> $GITHUB_ENV
+            echo "No database changes detected"
+          fi
+        else
+          echo "DATABASE_CHANGED=false" >> $GITHUB_ENV
+          echo "Database file not found after sync"
+        fi
+        
+    - name: Get database statistics
+      if: env.DATABASE_CHANGED == 'true'
+      run: |
+        # Install sqlite3 to query the database
+        sudo apt-get update && sudo apt-get install -y sqlite3
+        
+        if [ -f "${{ env.DATABASE_FILE }}" ]; then
+          {
+            echo "=== Database Statistics ==="
+            echo "File size: $(ls -lh ${{ env.DATABASE_FILE }} | awk '{print $5}')"
+            echo "Last modified: $(stat -c %y ${{ env.DATABASE_FILE }})"
+            echo ""
+            
+            # Get table counts
+            sqlite3 "${{ env.DATABASE_FILE }}" "
+            SELECT 'Total tables: ' || COUNT(*) FROM sqlite_master WHERE type='table';
+            " 2>/dev/null || echo "Could not query table count"
+            
+            # Try to get card count if cards table exists
+            sqlite3 "${{ env.DATABASE_FILE }}" "
+            SELECT 'Total cards: ' || COUNT(*) FROM cards;
+            " 2>/dev/null || echo "Cards table not accessible or doesn't exist"
+            
+            # Try to get localization count
+            sqlite3 "${{ env.DATABASE_FILE }}" "
+            SELECT 'Total localizations: ' || COUNT(*) FROM localization;
+            " 2>/dev/null || echo "Localization table not accessible or doesn't exist"
+            
+        } > db_stats.txt
+        else
+          echo "Database file not found" > db_stats.txt
+        fi
+        
+    - name: Upload logs as artifacts (always runs)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: sync-logs-${{ github.run_number }}
+        path: |
+          sync_output.log
+          sync_error.log
+          combined_logs.txt
+          db_stats.txt
+        retention-days: 7
+        
+    - name: Generate release version
+      if: env.DATABASE_CHANGED == 'true'
+      run: |
+        # Generate version based on date
+        VERSION="v$(date +'%Y.%m.%d')"
+        
+        # If version already exists, append counter
+        COUNTER=1
+        ORIGINAL_VERSION=$VERSION
+        while git tag -l | grep -q "^${VERSION}$"; do
+          VERSION="${ORIGINAL_VERSION}.${COUNTER}"
+          COUNTER=$((COUNTER + 1))
+        done
+        
+        echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
+        echo "Release version will be: $VERSION"
+        
+    - name: Create Release
+      if: env.DATABASE_CHANGED == 'true'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ env.RELEASE_VERSION }}
+        name: "Yu-Gi-Oh Database Update ${{ env.RELEASE_VERSION }}"
+        body: |
+          ## Automated Database Update
+          
+          This release contains an updated Yu-Gi-Oh database with the latest card information.
+          
+          **Release Information:**
+          - Generated on: ${{ github.run_id }}
+          - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - Database hash: ${{ env.DB_HASH_AFTER }}
+          
+          **Database Statistics:**
+          ${{ steps.stats.outputs.stats || 'Statistics not available' }}
+          
+          **Changes:**
+          - Database file updated with latest card data
+          - Previous database hash: ${{ env.DB_HASH_BEFORE }}
+          - New database hash: ${{ env.DB_HASH_AFTER }}
+          
+          Download the `yugioh-superdb.sqlite` file below to get the latest database.
+        files: |
+          ${{ env.DATABASE_FILE }}
+          combined_logs.txt
+          db_stats.txt
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Send success notification email
+      if: env.DATABASE_CHANGED == 'true' && env.SYNC_SUCCESS == 'true'
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: ${{ secrets.SMTP_SERVER }}
+        server_port: ${{ secrets.SMTP_PORT }}
+        username: ${{ secrets.SMTP_USERNAME }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        subject: "✅ Yu-Gi-Oh Database Updated - Release ${{ env.RELEASE_VERSION }}"
+        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
+        body: |
+          The Yu-Gi-Oh database has been successfully updated!
+          
+          🎉 **New Release Created:** ${{ env.RELEASE_VERSION }}
+          
+          📊 **Summary:**
+          - Sync completed successfully
+          - Database changes detected and saved
+          - Release created with updated database file
+          
+          🔗 **Links:**
+          - Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.RELEASE_VERSION }}
+          - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+          📈 **Database Info:**
+          - Previous hash: ${{ env.DB_HASH_BEFORE }}
+          - New hash: ${{ env.DB_HASH_AFTER }}
+          
+          The updated database is available for download from the release page.
+        attachments: combined_logs.txt,db_stats.txt
+        
+    - name: Send warning notification email
+      if: env.HAS_WARNINGS == 'true' && env.HAS_ERRORS == 'false'
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: ${{ secrets.SMTP_SERVER }}
+        server_port: ${{ secrets.SMTP_PORT }}
+        username: ${{ secrets.SMTP_USERNAME }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        subject: "⚠️ Yu-Gi-Oh Database Sync Completed with Warnings"
+        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
+        body: |
+          The Yu-Gi-Oh database sync completed but with warnings.
+          
+          ⚠️ **Status:** Completed with warnings
+          🗃️ **Database Changed:** ${{ env.DATABASE_CHANGED }}
+          
+          📋 **Details:**
+          - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - Check the attached logs for warning details
+          
+          Please review the warnings in the attached log file.
+        attachments: combined_logs.txt
+        
+    - name: Send failure notification email
+      if: env.SYNC_SUCCESS == 'false' || env.HAS_ERRORS == 'true'
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: ${{ secrets.SMTP_SERVER }}
+        server_port: ${{ secrets.SMTP_PORT }}
+        username: ${{ secrets.SMTP_USERNAME }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        subject: "🚨 Yu-Gi-Oh Database Sync Failed"
+        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
+        body: |
+          The Yu-Gi-Oh database sync has failed!
+          
+          🚨 **Status:** Failed
+          🗃️ **Database Changed:** ${{ env.DATABASE_CHANGED }}
+          
+          📋 **Error Details:**
+          - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - Sync success: ${{ env.SYNC_SUCCESS }}
+          - Has errors: ${{ env.HAS_ERRORS }}
+          
+          Please check the attached logs for error details and take appropriate action.
+          
+          The workflow may need manual intervention.
+        attachments: combined_logs.txt
+        
+    - name: Send no-changes notification (optional)
+      if: env.DATABASE_CHANGED == 'false' && env.SYNC_SUCCESS == 'true' && env.HAS_WARNINGS == 'false' && env.HAS_ERRORS == 'false' && github.event_name == 'schedule'
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: ${{ secrets.SMTP_SERVER }}
+        server_port: ${{ secrets.SMTP_PORT }}
+        username: ${{ secrets.SMTP_USERNAME }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        subject: "ℹ️ Yu-Gi-Oh Database Sync - No Changes"
+        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
+        body: |
+          The daily Yu-Gi-Oh database sync completed successfully.
+          
+          ℹ️ **Status:** No changes detected
+          ✅ **Sync:** Successful
+          
+          📋 **Details:**
+          - No database changes were found
+          - No new release was created
+          - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+          This is a routine notification that the sync process is working correctly.

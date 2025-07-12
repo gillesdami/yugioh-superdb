@@ -6,7 +6,9 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "sync": "node index-enhanced.js",
+    "test-sync": "node index-enhanced.js"
   },
   "dependencies": {
     "jsdom": "^25.0.0",
