@@ -123,33 +123,46 @@ jobs:
       
     - name: Analyze logs for warnings and errors
       run: |
-        # Check for warnings and errors in the output
+        # Check for warnings and errors in the output using safer patterns
         HAS_WARNINGS=false
         HAS_ERRORS=false
         
         if [ -f sync_output.log ]; then
-          # Check for warnings (excluding normal "no data found" messages)
-          if grep -i "warning\|warn" sync_output.log | grep -v "no data found" > /dev/null; then
+          # Look for actual error/warning log patterns (start of line or after timestamp)
+          # This avoids matching words like "error" in card names or descriptions
+          if grep -E "^(ERROR|WARN|WARNING):|^\[[0-9T:.-]+\] (ERROR|WARN|WARNING):|^Error:|^Warning:|Exception in|Uncaught|Failed to|Cannot|Unable to|Connection.*failed|Timeout|SCRAPING_ERROR" sync_output.log | grep -v -E "no data found|NO_DATA_FOUND" > /dev/null; then
             HAS_WARNINGS=true
           fi
-          # Check for errors (excluding normal "no data found" messages)
-          if grep -i "error\|fatal\|exception" sync_output.log | grep -v "no data found" > /dev/null; then
+          # Check for actual errors (more restrictive patterns)
+          if grep -E "^ERROR:|^\[[0-9T:.-]+\] ERROR:|^Error:|Exception in|Uncaught|Failed to.*critical|SCRAPING_ERROR|Process.*failed|Database.*error|Connection.*timeout" sync_output.log | grep -v -E "no data found|NO_DATA_FOUND" > /dev/null; then
             HAS_ERRORS=true
           fi
         fi
         
         if [ -f sync_error.log ] && [ -s sync_error.log ]; then
-          # Check if stderr contains actual errors (not just "no data found" messages)
-          if grep -v "no data found" sync_error.log | grep -i "error\|fatal\|exception" > /dev/null; then
-            HAS_ERRORS=true
-          elif grep -v "no data found" sync_error.log | grep -v "^$" > /dev/null; then
-            # If there's other content besides "no data found" and empty lines, treat as warnings
-            HAS_WARNINGS=true
+          # Count lines that are NOT "no data found" related and not empty
+          ERROR_LINES=$(grep -v -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log | grep -v "^$" | wc -l)
+          
+          if [ "$ERROR_LINES" -gt 0 ]; then
+            # Check if stderr contains actual error patterns (not just words in data)
+            if grep -v -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log | grep -E "^(ERROR|Error):|Exception:|Uncaught|Failed|Cannot|Unable|Connection.*failed|Timeout|SCRAPING_ERROR|Process.*failed" > /dev/null; then
+              HAS_ERRORS=true
+            else
+              # If there's other content that's not "no data found", treat as warnings only if it looks like actual log messages
+              if grep -v -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log | grep -E "^(WARN|WARNING|Info):|^\[[0-9T:.-]+\]|Deprecated|Notice:" > /dev/null; then
+                HAS_WARNINGS=true
+              fi
+            fi
+          fi
+        fi
+              HAS_WARNINGS=true
+            fi
           fi
         fi
         
         echo "HAS_WARNINGS=$HAS_WARNINGS" >> $GITHUB_ENV
         echo "HAS_ERRORS=$HAS_ERRORS" >> $GITHUB_ENV
+        echo "Detected - Warnings: $HAS_WARNINGS, Errors: $HAS_ERRORS"
         
         # Combine logs for email (filter out excessive "no data found" messages)
         {
@@ -162,16 +175,16 @@ jobs:
           echo ""
           echo "=== STDERR OUTPUT ==="
           if [ -f sync_error.log ]; then
-            # Show only first and last few "no data found" messages to avoid spam
-            no_data_count=$(grep -c "no data found" sync_error.log || echo "0")
+            # Count "no data found" related messages
+            no_data_count=$(grep -c -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log || echo "0")
             if [ "$no_data_count" -gt 20 ]; then
               echo "Found $no_data_count 'no data found' messages (showing first 10 and last 10):"
-              grep "no data found" sync_error.log | head -10
+              grep -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log | head -10
               echo "... ($((no_data_count - 20)) messages omitted) ..."
-              grep "no data found" sync_error.log | tail -10
+              grep -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log | tail -10
               echo ""
               echo "Other stderr content:"
-              grep -v "no data found" sync_error.log || echo "No other stderr content"
+              grep -v -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log || echo "No other stderr content"
             else
               cat sync_error.log
             fi

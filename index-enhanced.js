@@ -10,6 +10,21 @@ import { TranslationScraper } from './scrapers/translation-scraper.js';
 import { access } from 'fs/promises';
 import { constants } from 'fs';
 
+// Store original stderr.write method
+const originalStderrWrite = process.stderr.write;
+
+// Override stderr to filter out "NO_DATA_FOUND" messages
+process.stderr.write = function(string, encoding, fd) {
+  // Check if this is a "NO_DATA_FOUND" message that should be filtered
+  if (typeof string === 'string' && string.includes('NO_DATA_FOUND:')) {
+    // Don't write to stderr, but we can optionally log it differently
+    return true;
+  }
+  
+  // For all other stderr content, use the original method
+  return originalStderrWrite.call(process.stderr, string, encoding, fd);
+};
+
 // Enhanced logging with prefixes
 const log = {
   info: (msg) => console.log(`[INFO] ${new Date().toISOString()} ${msg}`),

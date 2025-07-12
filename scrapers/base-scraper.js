@@ -36,7 +36,9 @@ export class BaseScraper {
 
     handleScrapingError(error, context = {}) {
         if (error.message === 'NoDataFound') {
-            console.warn('no data found', context);
+            // Use a standardized format for "no data found" messages
+            // This will go to stderr but should be filtered out in the workflow
+            console.warn(`NO_DATA_FOUND: ${JSON.stringify(context)}`);
             return;
         }
 
@@ -45,7 +47,7 @@ export class BaseScraper {
             ...context
         };
 
-        console.error('Scraping Error:', errorData, error);
+        console.error('SCRAPING_ERROR:', errorData, error);
 
         if (process.argv.includes('--stop-on-error')) {
             process.exit(1);

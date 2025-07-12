@@ -42,7 +42,7 @@ export class BanlistScraper extends BaseScraper {
             for (const listName of lists) {
                 const list = document.getElementById(listName);
                 if (!list) {
-                    console.warn(`No list found for ${listName} at date ${date} for locale ${locale}`);
+                    console.log(`INFO: No list found for ${listName} at date ${date} for locale ${locale}`);
                     continue;
                 };
 

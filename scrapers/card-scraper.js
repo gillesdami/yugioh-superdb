@@ -123,7 +123,7 @@ export class CardScraper extends BaseScraper {
             }
         } else {
             console.log(cardData.attribute.includes(fromTranslation.Spell), this.translations[locale], fromTranslation.Spell);
-            console.warn(`Warning: No translation found for attribute ${cardData.attribute}`);
+            console.log(`INFO: No translation found for attribute ${cardData.attribute}`);
         }
 
         if (cardData.monsterType) {
@@ -133,7 +133,7 @@ export class CardScraper extends BaseScraper {
             if (toTranslation.monster_type[monsterTypeId]) {
                 cardData.monsterType = toTranslation.monster_type[monsterTypeId];
             } else {
-                console.warn(`Warning: No translation found for monster_type ${cardData.monsterType}`);
+                console.log(`INFO: No translation found for monster_type ${cardData.monsterType}`);
             }
         }
 
@@ -146,7 +146,7 @@ export class CardScraper extends BaseScraper {
             if (toTranslation.type[typeId]) {
                 return toTranslation.type[typeId];
             } else {
-                console.warn(`Warning: No translation found for type ${cardData.types[i]}`);
+                console.log(`INFO: No translation found for type ${cardData.types[i]}`);
                 return undefined;
             }
         }).filter(type => type !== undefined);
@@ -254,13 +254,14 @@ export class CardScraper extends BaseScraper {
                     console.log(`✅ Card ${this.currentId}: Found ${cardData.length} localizations`);
                 } else {
                     consecutiveNoData++;
-                    console.log(`❌ Card ${this.currentId}: No data found (${consecutiveNoData}/${maxConsecutiveNoData})`);
+                    // Use INFO level for normal "no data" output to stdout instead of stderr
+                    console.log(`ℹ️ Card ${this.currentId}: No data found (${consecutiveNoData}/${maxConsecutiveNoData})`);
                 }
                 this.currentId++;
             } catch (error) {
                 if (error.message === 'NoDataFound') {
                     consecutiveNoData++;
-                    console.log(`❌ Card ${this.currentId}: No data found (${consecutiveNoData}/${maxConsecutiveNoData})`);
+                    console.log(`ℹ️ Card ${this.currentId}: No data found (${consecutiveNoData}/${maxConsecutiveNoData})`);
                     this.currentId++;
                     continue;
                 }
