@@ -155,10 +155,6 @@ jobs:
             fi
           fi
         fi
-              HAS_WARNINGS=true
-            fi
-          fi
-        fi
         
         echo "HAS_WARNINGS=$HAS_WARNINGS" >> $GITHUB_ENV
         echo "HAS_ERRORS=$HAS_ERRORS" >> $GITHUB_ENV
