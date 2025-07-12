@@ -10,6 +10,7 @@ on:
     paths: 
       - '.github/workflows/daily-sync.yml'
       - 'package.json'
+      - 'yarn.lock'
 
 env:
   NODE_VERSION: '18'
@@ -29,10 +30,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
+        cache: 'yarn'
         
     - name: Install dependencies
-      run: npm ci
+      run: yarn install --frozen-lockfile
       
     - name: Backup existing database
       run: |

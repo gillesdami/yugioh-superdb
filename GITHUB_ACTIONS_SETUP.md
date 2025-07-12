@@ -12,6 +12,7 @@ The GitHub Actions workflow will:
 - ✅ Create releases when database changes are detected
 - ✅ Send email notifications for releases, failures, and warnings
 - ✅ Capture and include full logs in notifications
+- ✅ Uses Yarn for dependency management (with `yarn.lock` support)
 
 ## Required GitHub Secrets
 
@@ -160,6 +161,7 @@ This will trigger the workflow immediately for testing purposes.
 1. Check the Actions tab for detailed error logs
 2. Common issues:
    - Node.js dependencies not installing
+   - Package manager mismatch (workflow uses Yarn, ensure `yarn.lock` exists)
    - Database file permissions
    - Network connectivity issues
    - SMTP authentication failures
