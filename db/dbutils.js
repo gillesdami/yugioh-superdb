@@ -1,10 +1,13 @@
 import initSqlJs from "sql.js";
-import { resolve } from "path";
+import { resolve, dirname } from "path";
 import { readFileSync, writeFileSync } from "fs";
+import { fileURLToPath } from "url";
 import genTables from "./genTables.js";
 
 const SQL = await initSqlJs();
-const path = resolve(import.meta.dirname, "..", "yugioh-superdb.sqlite");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const path = resolve(__dirname, "..", "yugioh-superdb.sqlite");
 
 export async function loadDb() {
     try {
