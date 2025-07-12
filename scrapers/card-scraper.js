@@ -22,8 +22,13 @@ export class CardScraper extends BaseScraper {
 
     async scrapeCard(cardId) {
         const results = [];
+        const primaryLocales = ['ja', 'en']; // Check these first
+        const secondaryLocales = this.LOCALES.filter(locale => !primaryLocales.includes(locale));
+        
+        let hasValidCard = false;
 
-        for (const locale of this.LOCALES) {
+        // First, check primary locales (ja, en) to determine if card exists
+        for (const locale of primaryLocales) {
             try {
                 const url = this.getCardUrl(cardId, locale);
                 const document = await this.parseHTML(url);
@@ -36,7 +41,33 @@ export class CardScraper extends BaseScraper {
                 };
 
                 this.translateScrapedCard(cardData, locale);
+                results.push(cardData);
+                hasValidCard = true;
+            } catch (error) {
+                this.handleScrapingError(error, { cardId, locale });
+            }
+        }
 
+        // If no valid card found in primary locales, skip secondary locales
+        if (!hasValidCard) {
+            console.log(`Card ${cardId}: No data in primary locales (ja, en), skipping secondary locales`);
+            return results;
+        }
+
+        // If card exists, scrape secondary locales
+        for (const locale of secondaryLocales) {
+            try {
+                const url = this.getCardUrl(cardId, locale);
+                const document = await this.parseHTML(url);
+
+                const cardData = {
+                    id: cardId,
+                    locale,
+                    ...this.extractCardData(document),
+                    editions: this.extractEditions(document),
+                };
+
+                this.translateScrapedCard(cardData, locale);
                 results.push(cardData);
             } catch (error) {
                 this.handleScrapingError(error, { cardId, locale });
@@ -215,16 +246,21 @@ export class CardScraper extends BaseScraper {
         while (consecutiveNoData < maxConsecutiveNoData) {
             try {
                 const cardData = await this.scrapeCard(this.currentId);
+                
+                // Check if we got any valid card data (should have at least ja or en)
                 if (cardData && cardData.length > 0) {
                     yield cardData;
                     consecutiveNoData = 0; // Reset counter on successful scrape
+                    console.log(`✅ Card ${this.currentId}: Found ${cardData.length} localizations`);
                 } else {
                     consecutiveNoData++;
+                    console.log(`❌ Card ${this.currentId}: No data found (${consecutiveNoData}/${maxConsecutiveNoData})`);
                 }
                 this.currentId++;
             } catch (error) {
                 if (error.message === 'NoDataFound') {
                     consecutiveNoData++;
+                    console.log(`❌ Card ${this.currentId}: No data found (${consecutiveNoData}/${maxConsecutiveNoData})`);
                     this.currentId++;
                     continue;
                 }
@@ -237,6 +273,36 @@ export class CardScraper extends BaseScraper {
             }
         }
 
-        console.log(`Stopped scraping after ${consecutiveNoData} consecutive cards with no data`);
+        console.log(`🛑 Stopped scraping after ${consecutiveNoData} consecutive cards with no data`);
+        console.log(`📊 Final processed card ID: ${this.currentId - 1}`);
+    }
+
+    /**
+     * Quick check to see if a card exists by testing primary locales (ja, en) only
+     * Returns true if card exists in at least one primary locale
+     */
+    async cardExists(cardId) {
+        const primaryLocales = ['ja', 'en'];
+        
+        for (const locale of primaryLocales) {
+            try {
+                const url = this.getCardUrl(cardId, locale);
+                const document = await this.parseHTML(url);
+                
+                // Basic check - if we can extract a name, the card likely exists
+                const cardElement = document.querySelector('.detail');
+                if (cardElement) {
+                    const name = this.extractText(cardElement, '#cardname h1');
+                    if (name && name.trim()) {
+                        return true;
+                    }
+                }
+            } catch (error) {
+                // Continue to next locale on error
+                continue;
+            }
+        }
+        
+        return false;
     }
 }
