@@ -297,8 +297,6 @@ jobs:
           Download the `yugioh-superdb.sqlite` file below to get the latest database.
         files: |
           ${{ env.DATABASE_FILE }}
-          combined_logs.txt
-          db_stats.txt
         draft: false
         prerelease: false
       env:
