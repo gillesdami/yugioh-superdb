@@ -61,27 +61,6 @@ NOTIFICATION_EMAIL: your-email@gmail.com
 3. Generate a new app password for "Mail"
 4. Use this 16-character password in SMTP_PASSWORD
 
-### Outlook/Hotmail Setup
-
-```text
-SMTP_SERVER: smtp-mail.outlook.com
-SMTP_PORT: 587
-SMTP_USERNAME: your-email@outlook.com
-SMTP_PASSWORD: your-password
-NOTIFICATION_EMAIL: your-email@outlook.com
-```
-
-### Custom SMTP Server
-
-```text
-SMTP_SERVER: mail.yourdomain.com
-SMTP_PORT: 587
-SMTP_USERNAME: bot@yourdomain.com
-SMTP_PASSWORD: your-password
-NOTIFICATION_EMAIL: admin@yourdomain.com
-SMTP_FROM: yugioh-notifications@yourdomain.com
-```
-
 ## What Triggers Email Notifications
 
 ### 🎉 **Success with Database Changes**
@@ -102,19 +81,11 @@ SMTP_FROM: yugioh-notifications@yourdomain.com
 - When: Sync script fails or errors detected
 - Includes: Error details, full logs, debugging info
 
-### ℹ️ **No Changes (Optional)**
-
-- Subject: "ℹ️ Yu-Gi-Oh Database Sync - No Changes"
-- Only sent for scheduled runs (daily)
-- Can be disabled by removing the step
-
 ## Workflow Features
 
 ### 🕐 **Scheduling**
 
 - Runs daily at 2:00 AM UTC
-- Can be manually triggered from GitHub Actions tab
-- Automatically runs when workflow file is updated
 
 ### 📦 **Release Management**
 
@@ -159,44 +130,3 @@ This will trigger the workflow immediately for testing purposes.
 2. Verify SMTP credentials work with your email provider
 3. Check GitHub Actions logs for email sending errors
 4. Some email providers require "less secure app access" to be enabled
-
-### Workflow Failures
-
-1. Check the Actions tab for detailed error logs
-2. Common issues:
-   - Node.js dependencies not installing
-   - Package manager mismatch (workflow uses Yarn, ensure `yarn.lock` exists)
-   - Database file permissions
-   - Network connectivity issues
-   - SMTP authentication failures
-
-### Database Not Updating
-
-1. Verify the sync script runs without errors locally
-2. Check if the website structure has changed
-3. Review scraping logs for blocked requests or rate limiting
-
-### Database Download Issues
-
-1. Verify that previous releases contain the database file
-2. Check network connectivity for downloading from GitHub releases
-3. Ensure the GitHub token has access to read releases
-
-## Security Notes
-
-- Never commit SMTP passwords or secrets to the repository
-- Use app passwords instead of main account passwords when possible
-- The workflow only has access to repository contents and configured secrets
-- Database files are publicly accessible through releases
-
-## Customization
-
-You can modify the workflow to:
-
-- Change the schedule (edit the cron expression)
-- Adjust email notification conditions
-- Add Slack or Discord notifications
-- Include additional database statistics
-- Change release naming convention
-
-Edit `.github/workflows/daily-sync.yml` to customize the behavior.
