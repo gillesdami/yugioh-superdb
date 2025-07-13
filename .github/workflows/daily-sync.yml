@@ -110,8 +110,8 @@ jobs:
         
         echo "=== Yu-Gi-Oh Database Sync Started at $(date) ==="
         
-        # Run the enhanced sync script and capture exit code
-        if node index-enhanced.js; then
+        # Run the sync script and capture exit code
+        if node index.js; then
           echo "SYNC_SUCCESS=true" >> $GITHUB_ENV
           echo "=== Sync completed successfully at $(date) ==="
         else

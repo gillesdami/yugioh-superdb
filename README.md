@@ -29,8 +29,7 @@ See `GITHUB_ACTIONS_SETUP.md` for configuration instructions.
 Run the sync script locally:
 
 ```bash
-npm start          # Run original sync script
-npm run sync       # Run enhanced sync with better logging
+npm start
 ```
 
 ## The model
