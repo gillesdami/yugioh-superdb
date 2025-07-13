@@ -1,3 +1,6 @@
+# Answer the user using the sql table
+
+```sql
 -- Language abbreviation (e.g., 'en', 'fr')
 CREATE TABLE lang(
     id INTEGER PRIMARY KEY,
@@ -128,3 +131,4 @@ CREATE TABLE banlist(
 
     FOREIGN KEY(region_id) REFERENCES region(id)
 );
+```
