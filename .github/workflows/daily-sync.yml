@@ -388,26 +388,3 @@ jobs:
           The workflow may need manual intervention.
         attachments: combined_logs.txt
         
-    - name: Send no-changes notification (optional)
-      if: env.DATABASE_CHANGED == 'false' && env.SYNC_SUCCESS == 'true' && env.HAS_WARNINGS == 'false' && env.HAS_ERRORS == 'false' && github.event_name == 'schedule'
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: ${{ secrets.SMTP_SERVER }}
-        server_port: ${{ secrets.SMTP_PORT }}
-        username: ${{ secrets.SMTP_USERNAME }}
-        password: ${{ secrets.SMTP_PASSWORD }}
-        subject: "ℹ️ Yu-Gi-Oh Database Sync - No Changes"
-        to: ${{ secrets.NOTIFICATION_EMAIL }}
-        from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
-        body: |
-          The daily Yu-Gi-Oh database sync completed successfully.
-          
-          ℹ️ **Status:** No changes detected
-          ✅ **Sync:** Successful
-          
-          📋 **Details:**
-          - No database changes were found
-          - No new release was created
-          - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          
-          This is a routine notification that the sync process is working correctly.
