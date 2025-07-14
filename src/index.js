@@ -1,9 +1,6 @@
 #!/usr/bin/env node
-import { SyncService } from './src/services/sync-service.js';
-import { TranslationScraper } from './src/scrapers/translation-scraper.js';
-import { extractDatabaseFromZip, createZipArchive, fileExists } from './src/utils/fileOperations.js';
-import { access } from 'fs/promises';
-import { constants } from 'fs';
+import { SyncService } from './services/sync-service.js';
+import { TranslationScraper } from './scrapers/translation-scraper.js'; 
 
 // Store original stderr.write method
 const originalStderrWrite = process.stderr.write;
@@ -79,9 +76,9 @@ async function scrapeTranslations() {
       
       // Save translations to file
       const fs = await import('fs/promises');
-      await fs.writeFile('translation.json', JSON.stringify(translations, null, 2));
-      log.info('Translations saved to translation.json');
-      
+      await fs.writeFile('dist/assets/translation.json', JSON.stringify(translations, null, 2));
+      log.info('Translations saved to dist/assets/translation.json');
+
       return translations;
     } else {
       log.warn('No translations found during scraping');
@@ -174,20 +171,12 @@ async function main() {
   try {
     log.info('=== Yu-Gi-Oh SuperDB Sync Started ===');
     log.info(`Node.js version: ${process.version}`);
-    log.info(`Platform: ${process.platform}`);
-    log.info(`Working directory: ${process.cwd()}`);
-    
-    // Extract database from zip if available
-    await extractDatabaseFromZip(log);
     
     // Run all sync operations
     await scrapeTranslations();
     await scrapeBanlists();
     await scrapeSets();
     await syncCards();
-    
-    // Zip the database file
-    await createZipArchive(log);
     
     printFinalStats();
     
@@ -208,35 +197,5 @@ async function main() {
     process.exit(1);
   }
 }
-
-// Handle process signals for graceful shutdown
-process.on('SIGINT', () => {
-  log.warn('Received SIGINT - attempting graceful shutdown');
-  printFinalStats();
-  process.exit(130);
-});
-
-process.on('SIGTERM', () => {
-  log.warn('Received SIGTERM - attempting graceful shutdown');
-  printFinalStats();
-  process.exit(143);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  log.error(`Uncaught exception: ${error.message}`);
-  log.error(`Stack: ${error.stack}`);
-  stats.errors++;
-  printFinalStats();
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  log.error(`Unhandled promise rejection at: ${promise}`);
-  log.error(`Reason: ${reason}`);
-  stats.errors++;
-  printFinalStats();
-  process.exit(1);
-});
 
 main();
