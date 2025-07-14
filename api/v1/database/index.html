@@ -1,6 +1,6 @@
 <html>
 <head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.13.0/sql-wasm.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
      <script>
         (function () {
@@ -14,7 +14,7 @@
             const zip = new JSZip();
 
             Promise.all([
-                initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}` }),
+                initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.13.0/${file}` }),
                 fetch('https://api.github.com/repos/gillesdami/yugioh-superdb/releases/latest')
                     .then(response => response.json())
                     .then(release => release.tag_name)
@@ -23,7 +23,19 @@
                     .then(zipArrayBuffer => zip.loadAsync(zipArrayBuffer))
                     .then(zipContent => zipContent.files[`yugioh-superdb.sqlite`].async("arraybuffer"))
             ])
-            .then(([SQL, arrayBuffer]) => new SQL.Database(new Uint8Array(arrayBuffer)))
+            .then(([SQL, arrayBuffer]) => {
+                const db = new SQL.Database(new Uint8Array(arrayBuffer));
+                
+                // Register BIT_COUNT function
+                db.create_function("BIT_COUNT", function(num) {
+                    if (num === null || num === undefined) return 0;
+                    const n = parseInt(num);
+                    if (isNaN(n)) return 0;
+                    return (n >>> 0).toString(2).split('1').length - 1;
+                });
+                
+                return db;
+            })
             .then(db => respond(db.exec(sqlQuery)))
             .catch(e => {
                 respond({ error: e.message });
