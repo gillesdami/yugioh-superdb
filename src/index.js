@@ -76,7 +76,7 @@ async function scrapeTranslations() {
       
       // Save translations to file
       const fs = await import('fs/promises');
-      await fs.writeFile('dist/assets/translation.json', JSON.stringify(translations, null, 2));
+      await fs.writeFile('dist/assets/translations.json', JSON.stringify(translations, null, 2));
       log.info('Translations saved to dist/assets/translations.json');
 
       return translations;
