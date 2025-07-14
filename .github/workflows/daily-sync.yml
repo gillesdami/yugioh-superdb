@@ -268,7 +268,7 @@ jobs:
         echo "Archive contents:"
         unzip -l "${{ env.RELEASE_ARCHIVE }}"
         
-    - name: Create tagged version with zip file for jsdelivr
+    - name: Create tagged version with zip file for cdns
       if: env.DATABASE_CHANGED == 'true'
       run: |
         # Configure git
