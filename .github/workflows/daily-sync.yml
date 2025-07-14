@@ -15,6 +15,8 @@ on:
 env:
   NODE_VERSION: '22'
   DATABASE_FILE: 'yugioh-superdb.sqlite'
+  TRANSLATION_FILE: 'translation.json'
+  RELEASE_ARCHIVE: 'yugioh-superdb.zip'
 
 jobs:
   sync-database:
@@ -23,8 +25,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0 # Full history for proper change detection
         
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -37,14 +37,6 @@ jobs:
       
     - name: Download latest database from previous release
       run: |
-        echo "Checking for existing database and latest release..."
-        
-        # If database already exists, skip download
-        if [ -f "${{ env.DATABASE_FILE }}" ]; then
-          echo "Database file already exists, skipping download"
-          exit 0
-        fi
-        
         # Get the latest release
         echo "Fetching latest release information..."
         LATEST_RELEASE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
@@ -55,44 +47,44 @@ jobs:
           echo "The sync script should handle creating a new database."
           echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
         else
-          # Extract download URL for the database file
-          DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name == "${{ env.DATABASE_FILE }}") | .browser_download_url')
+          # Extract download URL for the zip archive
+          DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name == "${{ env.RELEASE_ARCHIVE }}") | .browser_download_url')
           
           if [ "$DOWNLOAD_URL" != "null" ] && [ -n "$DOWNLOAD_URL" ]; then
-            echo "Downloading database from latest release..."
+            echo "Downloading database archive from latest release..."
             echo "Download URL: $DOWNLOAD_URL"
             
-            if curl -L -f -o "${{ env.DATABASE_FILE }}" "$DOWNLOAD_URL"; then
-              echo "Database downloaded successfully from latest release"
+            if curl -L -f -o "${{ env.RELEASE_ARCHIVE }}" "$DOWNLOAD_URL"; then
+              echo "Archive downloaded successfully from latest release"
               
-              # Verify the downloaded file
-              if [ -f "${{ env.DATABASE_FILE }}" ] && [ -s "${{ env.DATABASE_FILE }}" ]; then
-                echo "Downloaded database file size: $(ls -lh ${{ env.DATABASE_FILE }} | awk '{print $5}')"
-                echo "DATABASE_SOURCE=downloaded" >> $GITHUB_ENV
+              # Extract the archive
+              if unzip -q "${{ env.RELEASE_ARCHIVE }}"; then
+                echo "Archive extracted successfully"
+                
+                # Verify the extracted files
+                if [ -f "${{ env.DATABASE_FILE }}" ] && [ -s "${{ env.DATABASE_FILE }}" ]; then
+                  echo "Downloaded database file size: $(ls -lh ${{ env.DATABASE_FILE }} | awk '{print $5}')"
+                  echo "DATABASE_SOURCE=downloaded" >> $GITHUB_ENV
+                else
+                  echo "Warning: Database file appears to be empty or invalid"
+                  rm -f "${{ env.DATABASE_FILE }}" "${{ env.TRANSLATION_FILE }}" "${{ env.RELEASE_ARCHIVE }}"
+                  echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
+                fi
               else
-                echo "Warning: Downloaded file appears to be empty or invalid"
-                rm -f "${{ env.DATABASE_FILE }}"
+                echo "Failed to extract archive"
+                rm -f "${{ env.RELEASE_ARCHIVE }}"
                 echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
               fi
             else
-              echo "Failed to download database from latest release"
+              echo "Failed to download archive from latest release"
               echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
             fi
           else
-            echo "Database file not found in latest release assets"
+            echo "Archive file not found in latest release assets"
             echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
           fi
         fi
-      
-    - name: Backup existing database
-      run: |
-        if [ -f "${{ env.DATABASE_FILE }}" ]; then
-          cp "${{ env.DATABASE_FILE }}" "${DATABASE_FILE}.backup"
-          echo "DATABASE_BACKUP_EXISTS=true" >> $GITHUB_ENV
-        else
-          echo "DATABASE_BACKUP_EXISTS=false" >> $GITHUB_ENV
-        fi
-        
+
     - name: Get database hash before sync
       run: |
         if [ -f "${{ env.DATABASE_FILE }}" ]; then
@@ -239,19 +231,7 @@ jobs:
         else
           echo "Database file not found" > db_stats.txt
         fi
-        
-    - name: Upload logs as artifacts (always runs)
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: sync-logs-${{ github.run_number }}
-        path: |
-          sync_output.log
-          sync_error.log
-          combined_logs.txt
-          db_stats.txt
-        retention-days: 7
-        
+
     - name: Generate release version
       if: env.DATABASE_CHANGED == 'true'
       run: |
@@ -268,6 +248,16 @@ jobs:
         
         echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
         echo "Release version will be: $VERSION"
+        
+    - name: Create release archive
+      if: env.DATABASE_CHANGED == 'true'
+      run: |
+        # Create zip archive containing both files
+        zip "${{ env.RELEASE_ARCHIVE }}" "${{ env.DATABASE_FILE }}" "${{ env.TRANSLATION_FILE }}"
+        
+        # Verify archive contents
+        echo "Archive contents:"
+        unzip -l "${{ env.RELEASE_ARCHIVE }}"
         
     - name: Create Release
       if: env.DATABASE_CHANGED == 'true'
@@ -294,9 +284,13 @@ jobs:
           - Previous database hash: ${{ env.DB_HASH_BEFORE || 'None' }}
           - New database hash: ${{ env.DB_HASH_AFTER }}
           
-          Download the `yugioh-superdb.sqlite` file below to get the latest database.
+          Download the `yugioh-superdb.zip` file below to get the latest database and translations.
+          
+          **Archive Contents:**
+          - `yugioh-superdb.sqlite` - Main database file
+          - `translation.json` - Translation data
         files: |
-          ${{ env.DATABASE_FILE }}
+          ${{ env.RELEASE_ARCHIVE }}
         draft: false
         prerelease: false
       env:
@@ -385,4 +379,3 @@ jobs:
           
           The workflow may need manual intervention.
         attachments: combined_logs.txt
-        
