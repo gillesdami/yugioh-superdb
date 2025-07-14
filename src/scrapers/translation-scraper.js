@@ -15,7 +15,7 @@ export class TranslationScraper extends BaseScraper {
                 fr: 'Piège',
                 it: 'Trappola',
                 es: 'Trampa',
-                pt: 'Justo',
+                pt: 'Armadilha',
                 cn: 'Trap',
             },
             Spell: {
@@ -28,7 +28,7 @@ export class TranslationScraper extends BaseScraper {
                 it: 'Magia',
                 es: 'Mágica',
                 pt: 'Magia',
-                cn: 'Trap',
+                cn: 'Spell',
             }
         };
         this.SPECIAL_SUMMON_TRANSLATIONS = {
