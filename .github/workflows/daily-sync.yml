@@ -257,6 +257,36 @@ jobs:
         echo "Archive contents:"
         unzip -l "${{ env.RELEASE_ARCHIVE }}"
         
+    - name: Create tagged version with zip file for jsdelivr
+      if: env.DATABASE_CHANGED == 'true'
+      run: |
+        # Configure git
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Copy the archive to a safe location
+        cp "${{ env.RELEASE_ARCHIVE }}" "/tmp/${{ env.RELEASE_ARCHIVE }}"
+        
+        # Create a new orphan branch for the tagged version
+        git checkout --orphan "tag-${{ env.RELEASE_VERSION }}"
+        
+        # Remove all existing files
+        git rm -rf .
+        
+        # Copy back only the zip file
+        cp "/tmp/${{ env.RELEASE_ARCHIVE }}" "${{ env.RELEASE_ARCHIVE }}"
+        git add "${{ env.RELEASE_ARCHIVE }}"
+        
+        # Create commit
+        git commit -m "Database release ${{ env.RELEASE_VERSION }}"
+        
+        # Create and push the tag
+        git tag "${{ env.RELEASE_VERSION }}"
+        git push origin "${{ env.RELEASE_VERSION }}"
+        
+        # Switch back to main branch
+        git checkout ${{ github.ref_name }}
+        
     - name: Create Release
       if: env.DATABASE_CHANGED == 'true'
       uses: softprops/action-gh-release@v1
@@ -282,7 +312,9 @@ jobs:
           - Previous database hash: ${{ env.DB_HASH_BEFORE || 'None' }}
           - New database hash: ${{ env.DB_HASH_AFTER }}
           
-          Download the `yugioh-superdb.zip` file below to get the latest database and translations.
+          **Download Options:**
+          1. **Release Asset**: Download the `yugioh-superdb.zip` file below
+          2. **JSDelivr CDN**: Access via `https://cdn.jsdelivr.net/gh/${{ github.repository }}@${{ env.RELEASE_VERSION }}/yugioh-superdb.zip`
           
           **Archive Contents:**
           - `yugioh-superdb.sqlite` - Main database file
