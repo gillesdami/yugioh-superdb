@@ -43,9 +43,9 @@ jobs:
           "https://api.github.com/repos/${{ github.repository }}/releases/latest")
         
         if echo "$LATEST_RELEASE" | grep -q '"message": "Not Found"'; then
-          echo "No previous releases found. Starting with fresh database."
-          echo "The sync script should handle creating a new database."
-          echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
+          echo "ERROR: No previous releases found. Cannot proceed without existing database."
+          echo "The sync script requires an existing database to iterate upon."
+          exit 1
         else
           # Extract download URL for the zip archive
           DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name == "${{ env.RELEASE_ARCHIVE }}") | .browser_download_url')
@@ -58,7 +58,7 @@ jobs:
               echo "Archive downloaded successfully from latest release"
               
               # Extract the archive
-              if unzip -q "${{ env.RELEASE_ARCHIVE }}"; then
+              if unzip -o "${{ env.RELEASE_ARCHIVE }}"; then
                 echo "Archive extracted successfully"
                 
                 # Verify the extracted files
@@ -66,22 +66,20 @@ jobs:
                   echo "Downloaded database file size: $(ls -lh ${{ env.DATABASE_FILE }} | awk '{print $5}')"
                   echo "DATABASE_SOURCE=downloaded" >> $GITHUB_ENV
                 else
-                  echo "Warning: Database file appears to be empty or invalid"
-                  rm -f "${{ env.DATABASE_FILE }}" "${{ env.TRANSLATION_FILE }}" "${{ env.RELEASE_ARCHIVE }}"
-                  echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
+                  echo "ERROR: Database file appears to be empty or invalid"
+                  exit 1
                 fi
               else
-                echo "Failed to extract archive"
-                rm -f "${{ env.RELEASE_ARCHIVE }}"
-                echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
+                echo "ERROR: Failed to extract archive"
+                exit 1
               fi
             else
-              echo "Failed to download archive from latest release"
-              echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
+              echo "ERROR: Failed to download archive from latest release"
+              exit 1
             fi
           else
-            echo "Archive file not found in latest release assets"
-            echo "DATABASE_SOURCE=fresh" >> $GITHUB_ENV
+            echo "ERROR: Archive file not found in latest release assets"
+            exit 1
           fi
         fi
 
