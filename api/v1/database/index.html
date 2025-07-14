@@ -11,45 +11,24 @@
                 return;
             }
 
-            getLatestDatabaseUrl().then(dbUrl => {
-                return loadDB(dbUrl);
-            }).then(db => {
-                try {
-                    const results = db.exec(sqlQuery);
-                    respond({ results });
-                } catch (e) {
-                    respond({ error: e.message });
-                }
-            }).catch(e => {
+            const zip = new JSZip();
+
+            Promise.all([
+                initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}` }),
+                fetch('https://api.github.com/repos/gillesdami/yugioh-superdb/releases/latest')
+                    .then(response => response.json())
+                    .then(release => release.tag_name)
+                    .then(releaseTag => fetch(`https://cdn.statically.io/gh/gillesdami/yugioh-superdb/${releaseTag}/yugioh-superdb.zip`))
+                    .then(response => response.arrayBuffer())
+                    .then(zipArrayBuffer => zip.loadAsync(zipArrayBuffer))
+                    .then(zipContent => zipContent.files[`yugioh-superdb.sqlite`].async("arraybuffer"))
+            ])
+            .then(([SQL, arrayBuffer]) => new SQL.Database(new Uint8Array(arrayBuffer)))
+            .then(db => respond(db.exec(sqlQuery)))
+            .catch(e => {
                 respond({ error: e.message });
+                throw e;
             });
-
-            async function getLatestDatabaseUrl() {
-                const response = await fetch('https://api.github.com/repos/gillesdami/yugioh-superdb/releases/latest');
-                const release = await response.json();
-                const version = release.tag_name;
-
-                return `https://cdn.jsdelivr.net/gh/gillesdami/yugioh-superdb@${version}/yugioh-superdb.zip`;
-            }
-
-            async function loadDB(url) {
-                const SQL = await initSqlJs({
-                    locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
-                });
-
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch database: ${response.statusText}`);
-                }
-
-                const zipArrayBuffer = await response.arrayBuffer();
-                // Unzip the database file
-                const zip = new JSZip();
-                const zipContent = await zip.loadAsync(zipArrayBuffer);
-                const dbFile = zipContent.files[`yugioh-superdb.sqlite`];
-                const arrayBuffer = await dbFile.async("arraybuffer");
-                return new SQL.Database(new Uint8Array(arrayBuffer));
-            }
 
             function respond(data) {
                 document.body.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
