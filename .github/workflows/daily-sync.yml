@@ -35,52 +35,6 @@ jobs:
     - name: Install dependencies
       run: yarn install --frozen-lockfile
       
-    - name: Download latest database from main branch
-      run: |
-        # Check if database already exists in gh-pages/assets
-        if [ -f "gh-pages/assets/${{ env.DATABASE_FILE }}" ] || [ -f "gh-pages/assets/${{ env.RELEASE_ARCHIVE }}" ]; then
-          echo "Existing database found in gh-pages/assets"
-          
-          # Extract existing database if it's in zip format
-          if [ -f "gh-pages/assets/${{ env.RELEASE_ARCHIVE }}" ]; then
-            echo "Extracting database from existing zip archive..."
-            cd gh-pages/assets
-            unzip -o "${{ env.RELEASE_ARCHIVE }}"
-            cd ../..
-            # Copy extracted database to root for processing
-            cp "gh-pages/assets/${{ env.DATABASE_FILE }}" "${{ env.DATABASE_FILE }}"
-            if [ -f "gh-pages/assets/${{ env.TRANSLATION_FILE }}" ]; then
-              cp "gh-pages/assets/${{ env.TRANSLATION_FILE }}" "${{ env.TRANSLATION_FILE }}"
-            fi
-          elif [ -f "gh-pages/assets/${{ env.DATABASE_FILE }}" ]; then
-            echo "Copying existing database from gh-pages/assets..."
-            cp "gh-pages/assets/${{ env.DATABASE_FILE }}" "${{ env.DATABASE_FILE }}"
-            if [ -f "gh-pages/assets/${{ env.TRANSLATION_FILE }}" ]; then
-              cp "gh-pages/assets/${{ env.TRANSLATION_FILE }}" "${{ env.TRANSLATION_FILE }}"
-            fi
-          fi
-          
-          # Verify the database file
-          if [ -f "${{ env.DATABASE_FILE }}" ] && [ -s "${{ env.DATABASE_FILE }}" ]; then
-            echo "Existing database file size: $(ls -lh ${{ env.DATABASE_FILE }} | awk '{print $5}')"
-          else
-            echo "ERROR: Database file appears to be empty or invalid"
-            exit 1
-          fi
-        else
-          echo "ERROR: No existing database found in gh-pages/assets."
-          echo "Please manually place an initial database file in gh-pages/assets/ to bootstrap the sync process."
-          exit 1
-        fi
-
-    - name: Get database hash before sync
-      run: |
-        if [ -f "${{ env.DATABASE_FILE }}" ]; then
-          echo "DB_HASH_BEFORE=$(sha256sum ${{ env.DATABASE_FILE }} | cut -d' ' -f1)" >> $GITHUB_ENV
-        else
-          echo "DB_HASH_BEFORE=none" >> $GITHUB_ENV
-        fi
-        
     - name: Run database sync
       id: sync
       run: |
@@ -169,50 +123,43 @@ jobs:
           fi
         } > combined_logs.txt
         
-    - name: Check for database changes
+    - name: Check for database updates
       run: |
-        if [ -f "${{ env.DATABASE_FILE }}" ]; then
-          DB_HASH_AFTER=$(sha256sum ${{ env.DATABASE_FILE }} | cut -d' ' -f1)
-          echo "DB_HASH_AFTER=$DB_HASH_AFTER" >> $GITHUB_ENV
-          
-          if [ "${{ env.DB_HASH_BEFORE }}" != "$DB_HASH_AFTER" ]; then
-            echo "DATABASE_CHANGED=true" >> $GITHUB_ENV
-            echo "Database has changed - new release will be created"
-          else
-            echo "DATABASE_CHANGED=false" >> $GITHUB_ENV
-            echo "No database changes detected"
-          fi
+        # Since the scraper handles all file operations and creates the zip,
+        # we simply check if the files were updated in dist/assets
+        if [ -f "dist/assets/${{ env.RELEASE_ARCHIVE }}" ]; then
+          echo "DATABASE_CHANGED=true" >> $GITHUB_ENV
+          echo "Database files have been updated by the scraper"
         else
           echo "DATABASE_CHANGED=false" >> $GITHUB_ENV
-          echo "Database file not found after sync"
+          echo "No database updates found"
         fi
         
     - name: Get database statistics
       id: stats
-      if: env.DATABASE_CHANGED == 'true'
       run: |
         # Install sqlite3 to query the database
         sudo apt-get update && sudo apt-get install -y sqlite3
         
-        if [ -f "${{ env.DATABASE_FILE }}" ]; then
+        if [ -f "dist/assets/${{ env.DATABASE_FILE }}" ]; then
           {
             echo "=== Database Statistics ==="
-            echo "File size: $(ls -lh ${{ env.DATABASE_FILE }} | awk '{print $5}')"
-            echo "Last modified: $(stat -c %y ${{ env.DATABASE_FILE }})"
+            echo "File size: $(ls -lh dist/assets/${{ env.DATABASE_FILE }} | awk '{print $5}')"
+            echo "Last modified: $(stat -c %y dist/assets/${{ env.DATABASE_FILE }})"
             echo ""
             
             # Get table counts
-            sqlite3 "${{ env.DATABASE_FILE }}" "
+            sqlite3 "dist/assets/${{ env.DATABASE_FILE }}" "
             SELECT 'Total tables: ' || COUNT(*) FROM sqlite_master WHERE type='table';
             " 2>/dev/null || echo "Could not query table count"
             
             # Try to get card count if card table exists
-            sqlite3 "${{ env.DATABASE_FILE }}" "
+            sqlite3 "dist/assets/${{ env.DATABASE_FILE }}" "
             SELECT 'Total cards: ' || COUNT(*) FROM card;
             " 2>/dev/null || echo "Card table not accessible or doesn't exist"
 
             # Try to get localization count
-            sqlite3 "${{ env.DATABASE_FILE }}" "
+            sqlite3 "dist/assets/${{ env.DATABASE_FILE }}" "
             SELECT 'Total localizations: ' || COUNT(*) FROM localization;
             " 2>/dev/null || echo "Localization table not accessible or doesn't exist"
             
@@ -224,32 +171,19 @@ jobs:
         echo "$DB_STATS" >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
         else
-          echo "Database file not found" > db_stats.txt
-          echo "DATABASE_STATS=Database file not found" >> $GITHUB_ENV
+          echo "Database file not found in assets" > db_stats.txt
+          echo "DATABASE_STATS=Database file not found in assets" >> $GITHUB_ENV
         fi
 
-    - name: Update database assets and commit to main branch
+    - name: Commit updated database files
       if: env.DATABASE_CHANGED == 'true'
       run: |
         # Configure git
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         
-        # Create the assets directory if it doesn't exist
-        mkdir -p gh-pages/assets
-        
-        # Create zip archive containing both files
-        zip "${{ env.RELEASE_ARCHIVE }}" "${{ env.DATABASE_FILE }}" "${{ env.TRANSLATION_FILE }}"
-        
-        # Copy the archive to gh-pages/assets
-        cp "${{ env.RELEASE_ARCHIVE }}" "gh-pages/assets/${{ env.RELEASE_ARCHIVE }}"
-        
-        # Also copy individual files to assets for direct access
-        cp "${{ env.DATABASE_FILE }}" "gh-pages/assets/${{ env.DATABASE_FILE }}"
-        cp "${{ env.TRANSLATION_FILE }}" "gh-pages/assets/${{ env.TRANSLATION_FILE }}"
-        
-        # Add files to git
-        git add gh-pages/assets/
+        # Add files to git (scraper already placed them in dist/assets)
+        git add dist/assets/
         
         # Generate version based on date for commit message
         VERSION="v$(date +'%Y.%m.%d')"
@@ -264,8 +198,7 @@ jobs:
 
         - Updated yugioh-superdb.sqlite with latest card data
         - Updated translation.json
-        - Database hash: ${{ env.DB_HASH_AFTER }}
-        - Previous hash: ${{ env.DB_HASH_BEFORE }}
+        - Files updated by automated sync process
         
         Automated update from daily sync workflow"
         
@@ -296,16 +229,15 @@ jobs:
           📊 **Summary:**
           - Sync completed successfully
           - Database changes detected and committed to main branch
-          - Updated files available in gh-pages/assets/
+          - Updated files available in dist/assets/
           
           🔗 **Links:**
           - Tag: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.RELEASE_VERSION }}
           - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          - Database: https://${{ github.repository_owner }}.github.io/yugioh-superdb/assets/yugioh-superdb.zip
+          - Database: https://${{ github.repository_owner }}.github.io/yugioh-superdb/dist/assets/yugioh-superdb.zip
           
           📈 **Database Info:**
-          - Previous hash: ${{ env.DB_HASH_BEFORE }}
-          - New hash: ${{ env.DB_HASH_AFTER }}
+          ${{ env.DATABASE_STATS }}
         attachments: combined_logs.txt,db_stats.txt
         
     - name: Send warning notification email

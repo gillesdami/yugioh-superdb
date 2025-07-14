@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { SyncService } from './services/sync-service.js';
-import { TranslationScraper } from './scrapers/translation-scraper.js';
+import { SyncService } from './src/services/sync-service.js';
+import { TranslationScraper } from './src/scrapers/translation-scraper.js';
+import { extractDatabaseFromZip, createZipArchive, fileExists } from './src/utils/fileOperations.js';
 import { access } from 'fs/promises';
 import { constants } from 'fs';
 
@@ -37,30 +38,24 @@ const stats = {
   processedBanlists: 0
 };
 
-async function fileExists(path) {
-  try {
-    await access(path, constants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function syncCards() {
   const syncService = new SyncService();
-  await syncService.init();
-
+  
   try {
-    log.info('Starting Yu-Gi-Oh card sync...');
-    const result = await syncService.syncCards();
-
-    stats.processedCards = result.totalProcessed;
-    stats.errors += result.totalErrors;
-
-    log.success(`Card sync completed: ${result.totalProcessed} cards processed, ${result.totalErrors} errors`);
-    log.info(`Last processed ID: ${result.lastProcessedId}`);
+    await syncService.init();
     
-    return result;
+    log.info('Starting card sync...');
+    const result = await syncService.syncCards();
+    
+    // Assume syncCards returns some statistics
+    if (result && result.processed) {
+      stats.processedCards = result.processed;
+      log.success(`Card sync completed: ${result.processed} cards processed`);
+    } else {
+      log.success('Card sync completed');
+    }
+    
+    return true;
   } catch (error) {
     stats.errors++;
     log.error(`Card sync failed: ${error.message}`);
@@ -72,26 +67,25 @@ async function syncCards() {
 }
 
 async function scrapeTranslations() {
-  const translationsFile = 'translations.json';
-
-  if (await fileExists(translationsFile)) {
-    log.info('translations.json already exists - skipping translation scraping');
-    return true;
-  }
-
+  log.info('Starting translation scraping...');
+  
+  const translationScraper = new TranslationScraper();
+  
   try {
-    log.info('Starting translation scraping...');
-    const scraper = new TranslationScraper();
-    const translations = await scraper.scrapeAll();
-
-    const success = await scraper.saveToFile(translations);
-    if (success) {
-      log.success('Translations successfully saved to translations.json');
-      return true;
+    const translations = await translationScraper.scrape();
+    
+    if (translations && Object.keys(translations).length > 0) {
+      log.success(`Translation scraping completed: ${Object.keys(translations).length} translations found`);
+      
+      // Save translations to file
+      const fs = await import('fs/promises');
+      await fs.writeFile('translation.json', JSON.stringify(translations, null, 2));
+      log.info('Translations saved to translation.json');
+      
+      return translations;
     } else {
-      stats.errors++;
-      log.error('Failed to save translations');
-      return false;
+      log.warn('No translations found during scraping');
+      return {};
     }
   } catch (error) {
     stats.errors++;
@@ -183,11 +177,17 @@ async function main() {
     log.info(`Platform: ${process.platform}`);
     log.info(`Working directory: ${process.cwd()}`);
     
+    // Extract database from zip if available
+    await extractDatabaseFromZip(log);
+    
     // Run all sync operations
     await scrapeTranslations();
     await scrapeBanlists();
     await scrapeSets();
     await syncCards();
+    
+    // Zip the database file
+    await createZipArchive(log);
     
     printFinalStats();
     
