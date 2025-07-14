@@ -167,7 +167,7 @@ export class CardScraper extends BaseScraper {
 
         let levelRankArrows = null;
         if (itemBoxes[1]) {
-            const linkIcon = itemBoxes[1]?.querySelector('.icon_img_set');
+            const linkIcon = document.querySelector('.icon_img_set');
             if (linkIcon) {
                 levelRankArrows = this.calculateLinkArrows(linkIcon);
             } else {
