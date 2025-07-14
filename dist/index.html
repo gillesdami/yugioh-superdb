@@ -1,8 +1,7 @@
 <html>
 <head>
-    <script src="../../../external/sql-wasm.js"></script>
-    <script src="../../../external/jszip.min.js"></script>
-     <script>
+    <script src="external/sql-wasm.js"></script>
+    <script>
         (function () {
             const urlParams = new URLSearchParams(window.location.search);
             const sqlQuery = urlParams.get('sqlquery');
@@ -11,14 +10,10 @@
                 return;
             }
 
-            const zip = new JSZip();
-
             Promise.all([
-                initSqlJs({ locateFile: file => `../../../external/${file}` }),
-                fetch('../../../assets/yugioh-superdb.zip')
+                initSqlJs({ locateFile: file => `external/${file}` }),
+                fetch('assets/yugioh-superdb.sqlite')
                     .then(response => response.arrayBuffer())
-                    .then(zipArrayBuffer => zip.loadAsync(zipArrayBuffer))
-                    .then(zipContent => zipContent.files[`yugioh-superdb.sqlite`].async("arraybuffer"))
             ])
             .then(([SQL, arrayBuffer]) => {
                 const db = new SQL.Database(new Uint8Array(arrayBuffer));

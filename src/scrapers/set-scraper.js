@@ -27,7 +27,6 @@ export class SetScraper extends BaseScraper {
                     const setId = urlObj.searchParams.get('pid');
 
                     if (this.db.setExists(setId)) {
-                        console.log(`Set ${setName} (${locale}) already exists - skipping`);
                         continue;
                     }
 

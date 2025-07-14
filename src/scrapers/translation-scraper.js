@@ -72,7 +72,7 @@ export class TranslationScraper extends BaseScraper {
         }
     }
 
-    async scrapeAll() {
+    async scrape() {
         const results = {};
 
         for (const locale of this.LOCALES) {

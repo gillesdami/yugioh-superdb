@@ -100,7 +100,7 @@ For detailed setup instructions including email configuration, see [`GITHUB_ACTI
 # Run the scraper
 npm start
 
-# The resulting database will be saved as yugioh-superdb.sqlite
+# The resulting database will be saved as dist/assetsyugioh-superdb.sqlite
 ```
 
 ## 🔧 Configuration

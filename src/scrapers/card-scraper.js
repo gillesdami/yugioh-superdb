@@ -13,9 +13,7 @@ export class CardScraper extends BaseScraper {
     }
 
     loadTranslations() {
-        const __filename = fileURLToPath(import.meta.url);
-        const __dirname = dirname(__filename);
-        const translationsPath = resolve(__dirname, '../translations.json');
+        const translationsPath = resolve(import.meta.dirname, '../../dist/assets/translations.json');
         const translationsData = fs.readFileSync(translationsPath, 'utf-8');
         return JSON.parse(translationsData);
     }

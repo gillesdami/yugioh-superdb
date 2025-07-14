@@ -2,8 +2,7 @@ import initSqlJs from "sql.js";
 import { resolve } from "path";
 import { readFileSync, writeFileSync } from "fs";
 
-const distPath = resolve(import.meta.dirname, "..", "..", "dist");
-const sqliteFile = resolve(distPath, "yugioh-superdb.sqlite");
+const sqliteFile = resolve(import.meta.dirname, "..", "..", "dist", "assets", "yugioh-superdb.sqlite");
 
 export async function loadDb() {
     const SQL = await initSqlJs();

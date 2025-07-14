@@ -16,7 +16,6 @@ env:
   NODE_VERSION: '22'
   DATABASE_FILE: 'yugioh-superdb.sqlite'
   TRANSLATION_FILE: 'translation.json'
-  RELEASE_ARCHIVE: 'yugioh-superdb.zip'
 
 jobs:
   sync-database:
@@ -38,145 +37,66 @@ jobs:
     - name: Run database sync
       id: sync
       run: |
-        # Capture both stdout and stderr with timestamps
+        # Capture stdout and stderr
         exec > >(tee -a sync_output.log)
         exec 2> >(tee -a sync_error.log >&2)
         
         echo "=== Yu-Gi-Oh Database Sync Started at $(date) ==="
         
-        # Run the sync script and capture exit code
-        if node index.js; then
-          echo "SYNC_SUCCESS=true" >> $GITHUB_ENV
-          echo "=== Sync completed successfully at $(date) ==="
+        # Run the sync script with report generation and capture exit code
+        if node src/index.js --report; then
+          echo "SCRIPT_SUCCESS=true" >> $GITHUB_ENV
+          echo "=== Sync script completed successfully at $(date) ==="
         else
-          echo "SYNC_SUCCESS=false" >> $GITHUB_ENV
-          echo "=== Sync failed at $(date) ==="
-          exit 1
+          echo "SCRIPT_SUCCESS=false" >> $GITHUB_ENV
+          echo "=== Sync script failed at $(date) ==="
         fi
       continue-on-error: true
       
-    - name: Analyze logs for warnings and errors
+    - name: Process sync report
+      id: report
       run: |
-        # Check for warnings and errors in the output using safer patterns
-        HAS_WARNINGS=false
-        HAS_ERRORS=false
-        
-        if [ -f sync_output.log ]; then
-          # Look for actual error/warning log patterns (start of line or after timestamp)
-          # This avoids matching words like "error" in card names or descriptions
-          if grep -E "^(ERROR|WARN|WARNING):|^\[[0-9T:.-]+\] (ERROR|WARN|WARNING):|^Error:|^Warning:|Exception in|Uncaught|Failed to|Cannot|Unable to|Connection.*failed|Timeout|SCRAPING_ERROR" sync_output.log | grep -v -E "no data found|NO_DATA_FOUND" > /dev/null; then
-            HAS_WARNINGS=true
-          fi
-          # Check for actual errors (more restrictive patterns)
-          if grep -E "^ERROR:|^\[[0-9T:.-]+\] ERROR:|^Error:|Exception in|Uncaught|Failed to.*critical|SCRAPING_ERROR|Process.*failed|Database.*error|Connection.*timeout" sync_output.log | grep -v -E "no data found|NO_DATA_FOUND" > /dev/null; then
-            HAS_ERRORS=true
-          fi
-        fi
-        
-        if [ -f sync_error.log ] && [ -s sync_error.log ]; then
-          # Count lines that are NOT "no data found" related and not empty
-          ERROR_LINES=$(grep -v -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log | grep -v "^$" | wc -l)
+        if [ -f sync-report.json ]; then
+          # Install jq to parse the JSON report
+          sudo apt-get update && sudo apt-get install -y jq
+
+          # Parse report and set environment variables
+          SUCCESS=$(jq -r .success sync-report.json)
+          ERRORS=$(jq -r .errors sync-report.json)
+          WARNINGS=$(jq -r .warnings sync-report.json)
           
-          if [ "$ERROR_LINES" -gt 0 ]; then
-            # Check if stderr contains actual error patterns (not just words in data)
-            if grep -v -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log | grep -E "^(ERROR|Error):|Exception:|Uncaught|Failed|Cannot|Unable|Connection.*failed|Timeout|SCRAPING_ERROR|Process.*failed" > /dev/null; then
-              HAS_ERRORS=true
-            else
-              # If there's other content that's not "no data found", treat as warnings only if it looks like actual log messages
-              if grep -v -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log | grep -E "^(WARN|WARNING|Info):|^\[[0-9T:.-]+\]|Deprecated|Notice:" > /dev/null; then
-                HAS_WARNINGS=true
-              fi
-            fi
-          fi
+          echo "SYNC_SUCCESS=$SUCCESS" >> $GITHUB_ENV
+          echo "HAS_ERRORS=$( [ "$ERRORS" -gt 0 ] && echo "true" || echo "false" )" >> $GITHUB_ENV
+          echo "HAS_WARNINGS=$( [ "$WARNINGS" -gt 0 ] && echo "true" || echo "false" )" >> $GITHUB_ENV
+          
+          echo "Report processed: SUCCESS=$SUCCESS, ERRORS=$ERRORS, WARNINGS=$WARNINGS"
+        else
+          echo "sync-report.json not found. Assuming failure."
+          echo "SYNC_SUCCESS=false" >> $GITHUB_ENV
+          echo "HAS_ERRORS=true" >> $GITHUB_ENV
+          echo "HAS_WARNINGS=false" >> $GITHUB_ENV
         fi
         
-        echo "HAS_WARNINGS=$HAS_WARNINGS" >> $GITHUB_ENV
-        echo "HAS_ERRORS=$HAS_ERRORS" >> $GITHUB_ENV
-        echo "Detected - Warnings: $HAS_WARNINGS, Errors: $HAS_ERRORS"
-        
-        # Combine logs for email (filter out excessive "no data found" messages)
+        # Combine logs for email attachment
         {
           echo "=== STDOUT OUTPUT ==="
-          if [ -f sync_output.log ]; then
-            cat sync_output.log
-          else
-            echo "No stdout output captured"
-          fi
+          if [ -f sync_output.log ]; then cat sync_output.log; else echo "No stdout."; fi
           echo ""
           echo "=== STDERR OUTPUT ==="
-          if [ -f sync_error.log ]; then
-            # Count "no data found" related messages
-            no_data_count=$(grep -c -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log || echo "0")
-            if [ "$no_data_count" -gt 20 ]; then
-              echo "Found $no_data_count 'no data found' messages (showing first 10 and last 10):"
-              grep -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log | head -10
-              echo "... ($((no_data_count - 20)) messages omitted) ..."
-              grep -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log | tail -10
-              echo ""
-              echo "Other stderr content:"
-              grep -v -E "no data found|NO_DATA_FOUND|Card.*No data found" sync_error.log || echo "No other stderr content"
-            else
-              cat sync_error.log
-            fi
-          else
-            echo "No stderr output captured"
-          fi
+          if [ -f sync_error.log ]; then cat sync_error.log; else echo "No stderr."; fi
         } > combined_logs.txt
-        
-    - name: Check for database updates
-      run: |
-        # Since the scraper handles all file operations and creates the zip,
-        # we simply check if the files were updated in dist/assets
-        if [ -f "dist/assets/${{ env.RELEASE_ARCHIVE }}" ]; then
-          echo "DATABASE_CHANGED=true" >> $GITHUB_ENV
-          echo "Database files have been updated by the scraper"
-        else
-          echo "DATABASE_CHANGED=false" >> $GITHUB_ENV
-          echo "No database updates found"
-        fi
-        
-    - name: Get database statistics
-      id: stats
-      run: |
-        # Install sqlite3 to query the database
-        sudo apt-get update && sudo apt-get install -y sqlite3
-        
-        if [ -f "dist/assets/${{ env.DATABASE_FILE }}" ]; then
-          {
-            echo "=== Database Statistics ==="
-            echo "File size: $(ls -lh dist/assets/${{ env.DATABASE_FILE }} | awk '{print $5}')"
-            echo "Last modified: $(stat -c %y dist/assets/${{ env.DATABASE_FILE }})"
-            echo ""
-            
-            # Get table counts
-            sqlite3 "dist/assets/${{ env.DATABASE_FILE }}" "
-            SELECT 'Total tables: ' || COUNT(*) FROM sqlite_master WHERE type='table';
-            " 2>/dev/null || echo "Could not query table count"
-            
-            # Try to get card count if card table exists
-            sqlite3 "dist/assets/${{ env.DATABASE_FILE }}" "
-            SELECT 'Total cards: ' || COUNT(*) FROM card;
-            " 2>/dev/null || echo "Card table not accessible or doesn't exist"
 
-            # Try to get localization count
-            sqlite3 "dist/assets/${{ env.DATABASE_FILE }}" "
-            SELECT 'Total localizations: ' || COUNT(*) FROM localization;
-            " 2>/dev/null || echo "Localization table not accessible or doesn't exist"
-            
-        } > db_stats.txt
-        
-        # Output the statistics as a step output and environment variable
-        DB_STATS=$(cat db_stats.txt)
-        echo "DATABASE_STATS<<EOF" >> $GITHUB_ENV
-        echo "$DB_STATS" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
+    - name: Check for database updates
+      id: check_changes
+      run: |
+        if git status --porcelain | grep -q "dist/assets"; then
+          echo "changed=true" >> $GITHUB_OUTPUT
         else
-          echo "Database file not found in assets" > db_stats.txt
-          echo "DATABASE_STATS=Database file not found in assets" >> $GITHUB_ENV
+          echo "changed=false" >> $GITHUB_OUTPUT
         fi
 
     - name: Commit updated database files
-      if: env.DATABASE_CHANGED == 'true'
+      if: steps.check_changes.outputs.changed == 'true'
       run: |
         # Configure git
         git config user.name "github-actions[bot]"
@@ -193,14 +113,8 @@ jobs:
           VERSION="$VERSION-$(date +'%H%M')"
         fi
         
-        # Commit the changes
-        git commit -m "Database update $VERSION
-
-        - Updated yugioh-superdb.sqlite with latest card data
-        - Updated translation.json
-        - Files updated by automated sync process
-        
-        Automated update from daily sync workflow"
+        # Commit the changes with [skip ci] to prevent re-triggering
+        git commit -m "Automated database update $VERSION [skip ci]"
         
         # Create and push tag
         git tag "$VERSION"
@@ -211,7 +125,7 @@ jobs:
         echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
         
     - name: Send success notification email
-      if: env.DATABASE_CHANGED == 'true' && env.SYNC_SUCCESS == 'true'
+      if: steps.check_changes.outputs.changed == 'true' && env.SYNC_SUCCESS == 'true'
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: ${{ secrets.SMTP_SERVER }}
@@ -234,11 +148,8 @@ jobs:
           🔗 **Links:**
           - Tag: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.RELEASE_VERSION }}
           - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          - Database: https://${{ github.repository_owner }}.github.io/yugioh-superdb/dist/assets/yugioh-superdb.zip
-          
-          📈 **Database Info:**
-          ${{ env.DATABASE_STATS }}
-        attachments: combined_logs.txt,db_stats.txt
+          - Database: https://${{ github.repository_owner }}.github.io/yugioh-superdb/dist/assets/yugioh-superdb.sqlite
+        attachments: combined_logs.txt
         
     - name: Send warning notification email
       if: env.HAS_WARNINGS == 'true' && env.HAS_ERRORS == 'false'
@@ -255,7 +166,7 @@ jobs:
           The Yu-Gi-Oh database sync completed but with warnings.
           
           ⚠️ **Status:** Completed with warnings
-          🗃️ **Database Changed:** ${{ env.DATABASE_CHANGED }}
+          🗃️ **Database Changed:** ${{ steps.check_changes.outputs.changed }}
           
           📋 **Details:**
           - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -279,7 +190,7 @@ jobs:
           The Yu-Gi-Oh database sync has failed!
           
           🚨 **Status:** Failed
-          🗃️ **Database Changed:** ${{ env.DATABASE_CHANGED }}
+          🗃️ **Database Changed:** ${{ steps.check_changes.outputs.changed }}
           
           📋 **Error Details:**
           - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

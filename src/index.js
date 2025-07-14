@@ -77,7 +77,7 @@ async function scrapeTranslations() {
       // Save translations to file
       const fs = await import('fs/promises');
       await fs.writeFile('dist/assets/translation.json', JSON.stringify(translations, null, 2));
-      log.info('Translations saved to dist/assets/translation.json');
+      log.info('Translations saved to dist/assets/translations.json');
 
       return translations;
     } else {
@@ -167,6 +167,27 @@ function printFinalStats() {
   }
 }
 
+async function generateJsonReport() {
+  const fs = await import('fs/promises');
+  const duration = Math.round((Date.now() - stats.startTime) / 1000);
+  
+  const report = {
+    success: stats.errors === 0,
+    warnings: stats.warnings,
+    errors: stats.errors,
+    durationSeconds: duration,
+    processed: {
+      cards: stats.processedCards,
+      sets: stats.processedSets,
+      banlists: stats.processedBanlists,
+    },
+    timestamp: new Date().toISOString(),
+  };
+  
+  await fs.writeFile('sync-report.json', JSON.stringify(report, null, 2));
+  log.info('Generated sync-report.json');
+}
+
 async function main() {
   try {
     log.info('=== Yu-Gi-Oh SuperDB Sync Started ===');
@@ -179,6 +200,11 @@ async function main() {
     await syncCards();
     
     printFinalStats();
+
+    // Generate JSON report if requested
+    if (process.argv.includes('--report')) {
+      await generateJsonReport();
+    }
     
     if (stats.errors > 0) {
       log.error('Sync completed with errors - exiting with error code');
@@ -194,6 +220,12 @@ async function main() {
     log.error(`Stack trace: ${error.stack}`);
     
     printFinalStats();
+
+    // Generate JSON report if requested, even on failure
+    if (process.argv.includes('--report')) {
+      await generateJsonReport();
+    }
+    
     process.exit(1);
   }
 }
