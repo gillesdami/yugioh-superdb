@@ -47,15 +47,19 @@ jobs:
           echo "The sync script requires an existing database to iterate upon."
           exit 1
         else
-          # Extract download URL for the zip archive
-          DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name == "${{ env.RELEASE_ARCHIVE }}") | .browser_download_url')
+          # Extract tag name from the latest release
+          TAG_NAME=$(echo "$LATEST_RELEASE" | jq -r '.tag_name')
           
-          if [ "$DOWNLOAD_URL" != "null" ] && [ -n "$DOWNLOAD_URL" ]; then
-            echo "Downloading database archive from latest release..."
+          if [ "$TAG_NAME" != "null" ] && [ -n "$TAG_NAME" ]; then
+            echo "Latest release tag: $TAG_NAME"
+            
+            # Download archive from the tagged version using Statically CDN
+            DOWNLOAD_URL="https://cdn.statically.io/gh/${{ github.repository }}/${TAG_NAME}/${{ env.RELEASE_ARCHIVE }}"
+            echo "Downloading database archive from tagged version..."
             echo "Download URL: $DOWNLOAD_URL"
             
             if curl -L -f -o "${{ env.RELEASE_ARCHIVE }}" "$DOWNLOAD_URL"; then
-              echo "Archive downloaded successfully from latest release"
+              echo "Archive downloaded successfully from tagged version"
               
               # Extract the archive
               if unzip -o "${{ env.RELEASE_ARCHIVE }}"; then
@@ -64,7 +68,6 @@ jobs:
                 # Verify the extracted files
                 if [ -f "${{ env.DATABASE_FILE }}" ] && [ -s "${{ env.DATABASE_FILE }}" ]; then
                   echo "Downloaded database file size: $(ls -lh ${{ env.DATABASE_FILE }} | awk '{print $5}')"
-                  echo "DATABASE_SOURCE=downloaded" >> $GITHUB_ENV
                 else
                   echo "ERROR: Database file appears to be empty or invalid"
                   exit 1
@@ -74,11 +77,11 @@ jobs:
                 exit 1
               fi
             else
-              echo "ERROR: Failed to download archive from latest release"
+              echo "ERROR: Failed to download archive from tagged version"
               exit 1
             fi
           else
-            echo "ERROR: Archive file not found in latest release assets"
+            echo "ERROR: Could not extract tag name from latest release"
             exit 1
           fi
         fi
@@ -198,6 +201,7 @@ jobs:
         fi
         
     - name: Get database statistics
+      id: stats
       if: env.DATABASE_CHANGED == 'true'
       run: |
         # Install sqlite3 to query the database
@@ -215,19 +219,26 @@ jobs:
             SELECT 'Total tables: ' || COUNT(*) FROM sqlite_master WHERE type='table';
             " 2>/dev/null || echo "Could not query table count"
             
-            # Try to get card count if cards table exists
+            # Try to get card count if card table exists
             sqlite3 "${{ env.DATABASE_FILE }}" "
-            SELECT 'Total cards: ' || COUNT(*) FROM cards;
-            " 2>/dev/null || echo "Cards table not accessible or doesn't exist"
-            
+            SELECT 'Total cards: ' || COUNT(*) FROM card;
+            " 2>/dev/null || echo "Card table not accessible or doesn't exist"
+
             # Try to get localization count
             sqlite3 "${{ env.DATABASE_FILE }}" "
             SELECT 'Total localizations: ' || COUNT(*) FROM localization;
             " 2>/dev/null || echo "Localization table not accessible or doesn't exist"
             
         } > db_stats.txt
+        
+        # Output the statistics as a step output and environment variable
+        DB_STATS=$(cat db_stats.txt)
+        echo "DATABASE_STATS<<EOF" >> $GITHUB_ENV
+        echo "$DB_STATS" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
         else
           echo "Database file not found" > db_stats.txt
+          echo "DATABASE_STATS=Database file not found" >> $GITHUB_ENV
         fi
 
     - name: Generate release version
@@ -302,10 +313,9 @@ jobs:
           - Generated on: ${{ github.run_id }}
           - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           - Database hash: ${{ env.DB_HASH_AFTER }}
-          - Database source: ${{ env.DATABASE_SOURCE }}
           
           **Database Statistics:**
-          ${{ steps.stats.outputs.stats || 'Statistics not available' }}
+          ${{ env.DATABASE_STATS || 'Statistics not available' }}
           
           **Changes:**
           - Database file updated with latest card data
@@ -313,14 +323,11 @@ jobs:
           - New database hash: ${{ env.DB_HASH_AFTER }}
           
           **Download Options:**
-          1. **Release Asset**: Download the `yugioh-superdb.zip` file below
-          2. **JSDelivr CDN**: Access via `https://cdn.jsdelivr.net/gh/${{ github.repository }}@${{ env.RELEASE_VERSION }}/yugioh-superdb.zip`
+          - **Statically CDN**: Access via `https://cdn.statically.io/gh/${{ github.repository }}/${{ env.RELEASE_VERSION }}/yugioh-superdb.zip`
           
           **Archive Contents:**
           - `yugioh-superdb.sqlite` - Main database file
           - `translation.json` - Translation data
-        files: |
-          ${{ env.RELEASE_ARCHIVE }}
         draft: false
         prerelease: false
       env:
@@ -345,8 +352,7 @@ jobs:
           📊 **Summary:**
           - Sync completed successfully
           - Database changes detected and saved
-          - Release created with updated database file
-          - Database source: ${{ env.DATABASE_SOURCE }}
+          - Release created with updated database files
           
           🔗 **Links:**
           - Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.RELEASE_VERSION }}
@@ -355,8 +361,6 @@ jobs:
           📈 **Database Info:**
           - Previous hash: ${{ env.DB_HASH_BEFORE }}
           - New hash: ${{ env.DB_HASH_AFTER }}
-          
-          The updated database is available for download from the release page.
         attachments: combined_logs.txt,db_stats.txt
         
     - name: Send warning notification email
