@@ -1,0 +1,51 @@
+<html>
+<head>
+    <script src="../../../external/sql-wasm.js"></script>
+    <script src="../../../external/jszip.min.js"></script>
+     <script>
+        (function () {
+            const urlParams = new URLSearchParams(window.location.search);
+            const sqlQuery = urlParams.get('sqlquery');
+            if (!sqlQuery) {
+                setTimeout(() => respond({ error: "sqlquery query parameter is required" }), 0);
+                return;
+            }
+
+            const zip = new JSZip();
+
+            Promise.all([
+                initSqlJs({ locateFile: file => `../../../external/${file}` }),
+                fetch('../../../assets/yugioh-superdb.zip')
+                    .then(response => response.arrayBuffer())
+                    .then(zipArrayBuffer => zip.loadAsync(zipArrayBuffer))
+                    .then(zipContent => zipContent.files[`yugioh-superdb.sqlite`].async("arraybuffer"))
+            ])
+            .then(([SQL, arrayBuffer]) => {
+                const db = new SQL.Database(new Uint8Array(arrayBuffer));
+                
+                // Register BIT_COUNT function
+                db.create_function("BIT_COUNT", function(num) {
+                    if (num === null || num === undefined) return 0;
+                    const n = parseInt(num);
+                    if (isNaN(n)) return 0;
+                    return (n >>> 0).toString(2).split('1').length - 1;
+                });
+                
+                return db;
+            })
+            .then(db => respond(db.exec(sqlQuery)))
+            .catch(e => {
+                respond({ error: e.message });
+                throw e;
+            });
+
+            function respond(data) {
+                document.body.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+        })();
+    </script>
+</head>
+<body>
+    <noscript>Please enable JavaScript to use the API</noscript>
+</body>
+</html>

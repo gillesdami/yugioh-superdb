@@ -35,55 +35,42 @@ jobs:
     - name: Install dependencies
       run: yarn install --frozen-lockfile
       
-    - name: Download latest database from previous release
+    - name: Download latest database from main branch
       run: |
-        # Get the latest release
-        echo "Fetching latest release information..."
-        LATEST_RELEASE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          "https://api.github.com/repos/${{ github.repository }}/releases/latest")
-        
-        if echo "$LATEST_RELEASE" | grep -q '"message": "Not Found"'; then
-          echo "ERROR: No previous releases found. Cannot proceed without existing database."
-          echo "The sync script requires an existing database to iterate upon."
-          exit 1
-        else
-          # Extract tag name from the latest release
-          TAG_NAME=$(echo "$LATEST_RELEASE" | jq -r '.tag_name')
+        # Check if database already exists in gh-pages/assets
+        if [ -f "gh-pages/assets/${{ env.DATABASE_FILE }}" ] || [ -f "gh-pages/assets/${{ env.RELEASE_ARCHIVE }}" ]; then
+          echo "Existing database found in gh-pages/assets"
           
-          if [ "$TAG_NAME" != "null" ] && [ -n "$TAG_NAME" ]; then
-            echo "Latest release tag: $TAG_NAME"
-            
-            # Download archive from the tagged version using Statically CDN
-            DOWNLOAD_URL="https://cdn.statically.io/gh/${{ github.repository }}/${TAG_NAME}/${{ env.RELEASE_ARCHIVE }}"
-            echo "Downloading database archive from tagged version..."
-            echo "Download URL: $DOWNLOAD_URL"
-            
-            if curl -L -f -o "${{ env.RELEASE_ARCHIVE }}" "$DOWNLOAD_URL"; then
-              echo "Archive downloaded successfully from tagged version"
-              
-              # Extract the archive
-              if unzip -o "${{ env.RELEASE_ARCHIVE }}"; then
-                echo "Archive extracted successfully"
-                
-                # Verify the extracted files
-                if [ -f "${{ env.DATABASE_FILE }}" ] && [ -s "${{ env.DATABASE_FILE }}" ]; then
-                  echo "Downloaded database file size: $(ls -lh ${{ env.DATABASE_FILE }} | awk '{print $5}')"
-                else
-                  echo "ERROR: Database file appears to be empty or invalid"
-                  exit 1
-                fi
-              else
-                echo "ERROR: Failed to extract archive"
-                exit 1
-              fi
-            else
-              echo "ERROR: Failed to download archive from tagged version"
-              exit 1
+          # Extract existing database if it's in zip format
+          if [ -f "gh-pages/assets/${{ env.RELEASE_ARCHIVE }}" ]; then
+            echo "Extracting database from existing zip archive..."
+            cd gh-pages/assets
+            unzip -o "${{ env.RELEASE_ARCHIVE }}"
+            cd ../..
+            # Copy extracted database to root for processing
+            cp "gh-pages/assets/${{ env.DATABASE_FILE }}" "${{ env.DATABASE_FILE }}"
+            if [ -f "gh-pages/assets/${{ env.TRANSLATION_FILE }}" ]; then
+              cp "gh-pages/assets/${{ env.TRANSLATION_FILE }}" "${{ env.TRANSLATION_FILE }}"
             fi
+          elif [ -f "gh-pages/assets/${{ env.DATABASE_FILE }}" ]; then
+            echo "Copying existing database from gh-pages/assets..."
+            cp "gh-pages/assets/${{ env.DATABASE_FILE }}" "${{ env.DATABASE_FILE }}"
+            if [ -f "gh-pages/assets/${{ env.TRANSLATION_FILE }}" ]; then
+              cp "gh-pages/assets/${{ env.TRANSLATION_FILE }}" "${{ env.TRANSLATION_FILE }}"
+            fi
+          fi
+          
+          # Verify the database file
+          if [ -f "${{ env.DATABASE_FILE }}" ] && [ -s "${{ env.DATABASE_FILE }}" ]; then
+            echo "Existing database file size: $(ls -lh ${{ env.DATABASE_FILE }} | awk '{print $5}')"
           else
-            echo "ERROR: Could not extract tag name from latest release"
+            echo "ERROR: Database file appears to be empty or invalid"
             exit 1
           fi
+        else
+          echo "ERROR: No existing database found in gh-pages/assets."
+          echo "Please manually place an initial database file in gh-pages/assets/ to bootstrap the sync process."
+          exit 1
         fi
 
     - name: Get database hash before sync
@@ -241,97 +228,54 @@ jobs:
           echo "DATABASE_STATS=Database file not found" >> $GITHUB_ENV
         fi
 
-    - name: Generate release version
-      if: env.DATABASE_CHANGED == 'true'
-      run: |
-        # Generate version based on date
-        VERSION="v$(date +'%Y.%m.%d')"
-        
-        # If version already exists, append counter
-        COUNTER=1
-        ORIGINAL_VERSION=$VERSION
-        while git tag -l | grep -q "^${VERSION}$"; do
-          VERSION="${ORIGINAL_VERSION}.${COUNTER}"
-          COUNTER=$((COUNTER + 1))
-        done
-        
-        echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
-        echo "Release version will be: $VERSION"
-        
-    - name: Create release archive
-      if: env.DATABASE_CHANGED == 'true'
-      run: |
-        # Create zip archive containing both files
-        zip "${{ env.RELEASE_ARCHIVE }}" "${{ env.DATABASE_FILE }}" "${{ env.TRANSLATION_FILE }}"
-        
-        # Verify archive contents
-        echo "Archive contents:"
-        unzip -l "${{ env.RELEASE_ARCHIVE }}"
-        
-    - name: Create tagged version with zip file for cdns
+    - name: Update database assets and commit to main branch
       if: env.DATABASE_CHANGED == 'true'
       run: |
         # Configure git
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         
-        # Copy the archive to a safe location
-        cp "${{ env.RELEASE_ARCHIVE }}" "/tmp/${{ env.RELEASE_ARCHIVE }}"
+        # Create the assets directory if it doesn't exist
+        mkdir -p gh-pages/assets
         
-        # Create a new orphan branch for the tagged version
-        git checkout --orphan "tag-${{ env.RELEASE_VERSION }}"
+        # Create zip archive containing both files
+        zip "${{ env.RELEASE_ARCHIVE }}" "${{ env.DATABASE_FILE }}" "${{ env.TRANSLATION_FILE }}"
         
-        # Remove all existing files
-        git rm -rf .
+        # Copy the archive to gh-pages/assets
+        cp "${{ env.RELEASE_ARCHIVE }}" "gh-pages/assets/${{ env.RELEASE_ARCHIVE }}"
         
-        # Copy back only the zip file
-        cp "/tmp/${{ env.RELEASE_ARCHIVE }}" "${{ env.RELEASE_ARCHIVE }}"
-        git add "${{ env.RELEASE_ARCHIVE }}"
+        # Also copy individual files to assets for direct access
+        cp "${{ env.DATABASE_FILE }}" "gh-pages/assets/${{ env.DATABASE_FILE }}"
+        cp "${{ env.TRANSLATION_FILE }}" "gh-pages/assets/${{ env.TRANSLATION_FILE }}"
         
-        # Create commit
-        git commit -m "Database release ${{ env.RELEASE_VERSION }}"
+        # Add files to git
+        git add gh-pages/assets/
         
-        # Create and push the tag
-        git tag "${{ env.RELEASE_VERSION }}"
-        git push origin "${{ env.RELEASE_VERSION }}"
+        # Generate version based on date for commit message
+        VERSION="v$(date +'%Y.%m.%d')"
         
-        # Switch back to main branch
-        git checkout ${{ github.ref_name }}
+        # If we've already committed today, append time
+        if git log --oneline --since="today" --grep="Database update $VERSION" | grep -q "Database update $VERSION"; then
+          VERSION="$VERSION-$(date +'%H%M')"
+        fi
         
-    - name: Create Release
-      if: env.DATABASE_CHANGED == 'true'
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ env.RELEASE_VERSION }}
-        name: "Yu-Gi-Oh Database Update ${{ env.RELEASE_VERSION }}"
-        body: |
-          ## Automated Database Update
-          
-          This release contains an updated Yu-Gi-Oh database with the latest card information.
-          
-          **Release Information:**
-          - Generated on: ${{ github.run_id }}
-          - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          - Database hash: ${{ env.DB_HASH_AFTER }}
-          
-          **Database Statistics:**
-          ${{ env.DATABASE_STATS || 'Statistics not available' }}
-          
-          **Changes:**
-          - Database file updated with latest card data
-          - Previous database hash: ${{ env.DB_HASH_BEFORE || 'None' }}
-          - New database hash: ${{ env.DB_HASH_AFTER }}
-          
-          **Download Options:**
-          - **Statically CDN**: Access via `https://cdn.statically.io/gh/${{ github.repository }}/${{ env.RELEASE_VERSION }}/yugioh-superdb.zip`
-          
-          **Archive Contents:**
-          - `yugioh-superdb.sqlite` - Main database file
-          - `translation.json` - Translation data
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Commit the changes
+        git commit -m "Database update $VERSION
+
+        - Updated yugioh-superdb.sqlite with latest card data
+        - Updated translation.json
+        - Database hash: ${{ env.DB_HASH_AFTER }}
+        - Previous hash: ${{ env.DB_HASH_BEFORE }}
+        
+        Automated update from daily sync workflow"
+        
+        # Create and push tag
+        git tag "$VERSION"
+        git push origin ${{ github.ref_name }}
+        git push origin "$VERSION"
+        
+        # Set version for later steps
+        echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
         
     - name: Send success notification email
       if: env.DATABASE_CHANGED == 'true' && env.SYNC_SUCCESS == 'true'
@@ -341,22 +285,23 @@ jobs:
         server_port: ${{ secrets.SMTP_PORT }}
         username: ${{ secrets.SMTP_USERNAME }}
         password: ${{ secrets.SMTP_PASSWORD }}
-        subject: "✅ Yu-Gi-Oh Database Updated - Release ${{ env.RELEASE_VERSION }}"
+        subject: "✅ Yu-Gi-Oh Database Updated - Version ${{ env.RELEASE_VERSION }}"
         to: ${{ secrets.NOTIFICATION_EMAIL }}
         from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
         body: |
           The Yu-Gi-Oh database has been successfully updated!
           
-          🎉 **New Release Created:** ${{ env.RELEASE_VERSION }}
+          🎉 **New Version Committed:** ${{ env.RELEASE_VERSION }}
           
           📊 **Summary:**
           - Sync completed successfully
-          - Database changes detected and saved
-          - Release created with updated database files
+          - Database changes detected and committed to main branch
+          - Updated files available in gh-pages/assets/
           
           🔗 **Links:**
-          - Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.RELEASE_VERSION }}
+          - Tag: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.RELEASE_VERSION }}
           - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - Database: https://${{ github.repository_owner }}.github.io/yugioh-superdb/assets/yugioh-superdb.zip
           
           📈 **Database Info:**
           - Previous hash: ${{ env.DB_HASH_BEFORE }}
