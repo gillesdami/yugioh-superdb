@@ -1,14 +1,11 @@
 import { BaseScraper } from './base-scraper.js';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import { resolve } from 'path';
 
 export class CardScraper extends BaseScraper {
     constructor() {
         super();
         this.BASE_CARD_URL = 'https://www.db.yugioh-card.com/yugiohdb/card_search.action?ope=2&cid=ID&request_locale=LOC';
-        this.START_ID = 4007;
-        this.currentId = this.START_ID;
         this.translations = this.loadTranslations();
     }
 
@@ -236,44 +233,46 @@ export class CardScraper extends BaseScraper {
         return valueElement?.textContent?.trim() || null;
     }
 
-    async *scrapeCards(startId = this.START_ID) {
-        this.currentId = startId;
+    async *scrapeCards(config) {
         let consecutiveNoData = 0;
         const maxConsecutiveNoData = 100; // Stop after 100 consecutive missing cards
+        if (!Array.isArray(config)) {
+            config = Array.from({length: 10000}, (_, i) => i + config);
+        }
 
-        while (consecutiveNoData < maxConsecutiveNoData) {
+        for (const currentId of config) {
+            if (consecutiveNoData > maxConsecutiveNoData) {
+                console.log(`🛑 Stopped scraping after ${consecutiveNoData} consecutive cards with no data`);
+                console.log(`📊 Final processed card ID: ${currentId - 1}`);
+                break;
+            };
+
             try {
-                const cardData = await this.scrapeCard(this.currentId);
+                const cardData = await this.scrapeCard(currentId);
                 
                 // Check if we got any valid card data (should have at least ja or en)
                 if (cardData && cardData.length > 0) {
                     yield cardData;
                     consecutiveNoData = 0; // Reset counter on successful scrape
-                    console.log(`✅ Card ${this.currentId}: Found ${cardData.length} localizations`);
+                    console.log(`✅ Card ${currentId}: Found ${cardData.length} localizations`);
                 } else {
                     consecutiveNoData++;
                     // Use INFO level for normal "no data" output to stdout instead of stderr
-                    console.log(`ℹ️ Card ${this.currentId}: No data found (${consecutiveNoData}/${maxConsecutiveNoData})`);
+                    console.log(`ℹ️ Card ${currentId}: No data found (${consecutiveNoData}/${maxConsecutiveNoData})`);
                 }
-                this.currentId++;
             } catch (error) {
                 if (error.message === 'NoDataFound') {
                     consecutiveNoData++;
-                    console.log(`ℹ️ Card ${this.currentId}: No data found (${consecutiveNoData}/${maxConsecutiveNoData})`);
-                    this.currentId++;
+                    console.log(`ℹ️ Card ${currentId}: No data found (${consecutiveNoData}/${maxConsecutiveNoData})`);
                     continue;
                 }
 
-                this.handleScrapingError(error, { cardId: this.currentId });
+                this.handleScrapingError(error, { cardId: currentId });
                 if (process.argv.includes('--stop-on-error')) {
                     break;
                 }
-                this.currentId++;
             }
         }
-
-        console.log(`🛑 Stopped scraping after ${consecutiveNoData} consecutive cards with no data`);
-        console.log(`📊 Final processed card ID: ${this.currentId - 1}`);
     }
 
     /**

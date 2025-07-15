@@ -35,9 +35,9 @@ const stats = {
   processedBanlists: 0
 };
 
-async function syncCards() {
-  const syncService = new SyncService();
-  
+async function syncCards(options) {
+  const syncService = new SyncService(options);
+
   try {
     await syncService.init();
     
@@ -188,21 +188,45 @@ async function generateJsonReport() {
   log.info('Generated sync-report.json');
 }
 
+const options = {
+  cardIds: undefined,
+  report: false,
+  stopOnError: false
+};
+
 async function main() {
   try {
     log.info('=== Yu-Gi-Oh SuperDB Sync Started ===');
     log.info(`Node.js version: ${process.version}`);
     
+    // Parse command line arguments
+    const args = process.argv.slice(2);
+    
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+      if (arg === '--card-ids') {
+        // Next argument should be comma-separated card IDs
+        if (i + 1 < args.length) {
+          options.cardIds = args[i + 1].split(',').map(id => parseInt(id.trim(), 10));
+          i++;
+        }
+      } else if (arg === '--report') {
+        options.report = true;
+      } else if (arg === '--stop-on-error') {
+        options.stopOnError = true;
+      }
+    }
+    
     // Run all sync operations
     await scrapeTranslations();
     await scrapeBanlists();
     await scrapeSets();
-    await syncCards();
+    await syncCards(options);
     
     printFinalStats();
 
     // Generate JSON report if requested
-    if (process.argv.includes('--report')) {
+    if (options.report) {
       await generateJsonReport();
     }
     
@@ -222,7 +246,7 @@ async function main() {
     printFinalStats();
 
     // Generate JSON report if requested, even on failure
-    if (process.argv.includes('--report')) {
+    if (options.report) {
       await generateJsonReport();
     }
     

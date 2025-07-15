@@ -56,9 +56,8 @@ export class DbService {
         typeIds.push(typeResult[0]?.values[0]?.[0]);
       }
 
-      // Insert base card data
       this.db.exec(`
-        INSERT OR IGNORE INTO card (
+        INSERT OR REPLACE INTO card (
           id, monster_type_id, attribute_id,
           level_rank_arrows, atk, def, pendulum_scale
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -73,6 +72,7 @@ export class DbService {
       ]);
 
       // Insert type relationships
+      this.db.exec(`DELETE FROM type_card WHERE card_id = ?`, [cardData.id]);
       for (const typeId of typeIds) {
         this.db.exec(`
           INSERT OR IGNORE INTO type_card (type_id, card_id)

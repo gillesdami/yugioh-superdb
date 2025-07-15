@@ -4,6 +4,10 @@ import { BanlistScraper } from '../scrapers/banlist-scraper.js';
 import { SetScraper } from '../scrapers/set-scraper.js';
 
 export class SyncService {
+    constructor(options = {}) {
+        this.options = options;
+    }
+    
     async init() {
         this.db = new DbService();
         await this.db.open();
@@ -12,10 +16,8 @@ export class SyncService {
 
     async syncCards() {
         const scraper = new CardScraper();
-        let lastProcessedId = this.db.getLastProcessedCardId();
-        console.log(`Last processed card ID: ${lastProcessedId}`);
-
-        const cardGenerator = scraper.scrapeCards(lastProcessedId + 1);
+        const scrapeCardsConfig = this.options.cardIds ?? (this.db.getLastProcessedCardId() + 1)
+        const cardGenerator = scraper.scrapeCards(scrapeCardsConfig);
 
         let processedCount = 0;
         let errorCount = 0;
@@ -41,7 +43,7 @@ export class SyncService {
             }
         }
 
-        lastProcessedId = this.db.getLastProcessedCardId();
+        const lastProcessedId = this.db.getLastProcessedCardId();
         console.log(`Last processed card ID: ${lastProcessedId}`);
 
         return {
