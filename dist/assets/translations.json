@@ -121,6 +121,7 @@
       "10": "Xyz",
       "14": "Flip",
       "15": "Pendule",
+      "16": "Invocation Spéciale",
       "17": "Lien"
     },
     "Trap": "Piège",
@@ -249,6 +250,7 @@
       "10": "Xyz",
       "14": "Flipp",
       "15": "Pendel",
+      "16": "Spezialbeschwörung",
       "17": "Link"
     },
     "Trap": "Fallen",
@@ -312,6 +314,7 @@
       "10": "Xyz",
       "14": "Flip",
       "15": "Pendulum",
+      "16": "Special summon",
       "17": "Link"
     },
     "Trap": "Trap",
@@ -375,6 +378,7 @@
       "10": "Xyz",
       "14": "Flip",
       "15": "Pendulum",
+      "16": "特殊召唤",
       "17": "Link"
     },
     "Trap": "Trap",
@@ -438,6 +442,7 @@
       "10": "Xyz",
       "14": "Volteo",
       "15": "Péndulo",
+      "16": "Invocación Especial",
       "17": "Enlace"
     },
     "Trap": "Trampa",
@@ -501,6 +506,7 @@
       "10": "Xyz",
       "14": "Scoperta",
       "15": "Pendulum",
+      "16": "Evocazione Speciale",
       "17": "Link"
     },
     "Trap": "Trappola",
@@ -628,6 +634,7 @@
       "10": "Xyz",
       "14": "Virar",
       "15": "Pêndulo",
+      "16": "Invocação Especial",
       "17": "Link"
     },
     "Trap": "Armadilha",
