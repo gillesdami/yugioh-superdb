@@ -62,7 +62,7 @@
             copyPromptBtn.addEventListener('click', async function() {
                 try {
                     // Fetch the prompt content
-                    const response = await fetch('prompt.md');
+                    const response = await fetch('assets/prompt.md');
                     const promptText = await response.text();
                     
                     // Copy to clipboard
