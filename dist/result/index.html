@@ -102,7 +102,7 @@
         
         function showError(message) {
             document.getElementById('loader').style.display = 'none';
-            document.getElementById('error').textContent = message;
+            document.getElementById('errorMessage').textContent = message;
             document.getElementById('error').style.display = 'block';
         }
         
@@ -204,7 +204,13 @@
             <button id="executeButton" onclick="executeQuery()" class="px-4 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 transition-colors">Execute Query</button>
         </div>
         
-        <div id="error" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" style="display: none;"></div>
+        <div id="error" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" style="display: none;">
+            <div class="font-bold mb-2">SQL Error</div>
+            <div id="errorMessage"></div>
+            <div class="mt-2 text-sm">
+                <p>Don't worry! If you're using AI to generate queries, it might make small mistakes. Share the error message above, and it can help correct the query.</p>
+            </div>
+        </div>
         
         <div id="loader" class="loader" style="display: none;"></div>
         
