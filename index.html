@@ -1,5 +1,9 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yu-Gi-Oh! SuperDB - AI-Powered Card Database</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -14,24 +18,21 @@
                 <h2 class="text-2xl font-semibold mb-4">About</h2>
                 <p class="mb-4">
                     Yu-Gi-Oh! SuperDB is a powerful tool that leverages Large Language Models (LLMs) to answer 
-                    virtually any question related to Yu-Gi-Oh!
+                    virtually any question related to Yu-Gi-Oh! cards, card sets, and banlists in both the 
+                    Trading Card Game (TCG) and Official Card Game (OCG).
                 </p>
                 <p>
-                    Ask questions in natural language, and get precise answers on cards, card sets, and banlists in both the 
-                    Trading Card Game (TCG) and Official Card Game (OCG).
+                    Simply ask questions in natural language, and get precise answers drawn from a comprehensive 
+                    Yu-Gi-Oh! database - no SQL knowledge required!
                 </p>
             </section>
 
             <section class="mb-8">
                 <h2 class="text-2xl font-semibold mb-4">How to Use</h2>
                 <ol class="list-decimal pl-6 space-y-4">
-                    <li>
-                        Copy the super prompt by 
-                        <button id="copyPromptBtn" class="text-blue-600 hover:underline font-medium">clicking here</button>
-                        <span id="copyFeedback" class="ml-2 text-green-600 hidden">✓ Prompt copied to clipboard!</span>
-                    </li>
+                    <li>Copy the super prompt by <a href="dist/assets/prompt.md" class="text-blue-600 hover:underline font-medium" download>clicking here</a></li>
                     <li>Head to <a href="https://chat.openai.com/" target="_blank" class="text-blue-600 hover:underline font-medium">ChatGPT</a>, paste the prompt and type your question</li>
-                    <li>Click the link ChatGPT gives you to get an exact answer</li>
+                    <li>Click the link ChatGPT gives you to get the answer</li>
                 </ol>
             </section>
 
@@ -48,39 +49,8 @@
         </main>
 
         <footer class="mt-8 text-center text-gray-600 text-sm">
-            <a href="https://github.com/gillesdami/yugioh-superdb">
-                Learn more on <b>Yugioh SuperDB</b>
-            </a>
+            <p>Yu-Gi-Oh! SuperDB &copy; 2023-2025. Yu-Gi-Oh! is a registered trademark of Konami.</p>
         </footer>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const copyPromptBtn = document.getElementById('copyPromptBtn');
-            const copyFeedback = document.getElementById('copyFeedback');
-            
-            copyPromptBtn.addEventListener('click', async function() {
-                try {
-                    // Fetch the prompt content
-                    const response = await fetch('dist/assets/prompt.md');
-                    const promptText = await response.text();
-                    
-                    // Copy to clipboard
-                    await navigator.clipboard.writeText(promptText);
-                    
-                    // Show feedback
-                    copyFeedback.classList.remove('hidden');
-                    
-                    // Hide feedback after 3 seconds
-                    setTimeout(() => {
-                        copyFeedback.classList.add('hidden');
-                    }, 3000);
-                } catch (err) {
-                    console.error('Failed to copy prompt: ', err);
-                    alert('Could not copy the prompt. Please try again or download it manually.');
-                }
-            });
-        });
-    </script>
 </body>
 </html>

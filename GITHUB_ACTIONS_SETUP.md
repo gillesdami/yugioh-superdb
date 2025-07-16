@@ -9,8 +9,8 @@ The GitHub Actions workflow will:
 - ✅ Run automatically every day at 2:00 AM UTC
 - ✅ Execute the database sync script (`node index.js`)
 - ✅ Detect database changes by comparing file hashes
-- ✅ Create releases when database changes are detected
-- ✅ Send email notifications for releases, failures, and warnings
+- ✅ Create a new version when database changes are detected
+- ✅ Send email notifications for new version, failures, and warnings
 - ✅ Capture and include full logs in notifications
 - ✅ Uses Yarn for dependency management (with `yarn.lock` support)
 
@@ -61,55 +61,18 @@ NOTIFICATION_EMAIL: your-email@gmail.com
 3. Generate a new app password for "Mail"
 4. Use this 16-character password in SMTP_PASSWORD
 
-## What Triggers Email Notifications
-
-### 🎉 **Success with Database Changes**
-
-- Subject: "✅ Yu-Gi-Oh Database Updated - Release vYYYY.MM.DD"
-- When: Sync successful + database changes detected
-- Includes: Release link, database stats, full logs
-
-### ⚠️ **Warnings**
-
-- Subject: "⚠️ Yu-Gi-Oh Database Sync Completed with Warnings"
-- When: Sync completed but warnings found in logs
-- Includes: Warning details, full logs
-
-### 🚨 **Errors/Failures**
-
-- Subject: "🚨 Yu-Gi-Oh Database Sync Failed"
-- When: Sync script fails or errors detected
-- Includes: Error details, full logs, debugging info
-
 ## Workflow Features
 
 ### 🕐 **Scheduling**
 
 - Runs daily at 2:00 AM UTC
 
-### 📦 **Release Management**
+### 📦 **Version Management**
 
-- Creates releases only when database changes are detected
+- Creates new versions only when database changes are detected
 - Version format: `vYYYY.MM.DD` (e.g., `v2024.12.15`)
-- If multiple releases same day: `vYYYY.MM.DD.1`, `vYYYY.MM.DD.2`, etc.
+- If multiple version same day: `vYYYY.MM.DD.1`, `vYYYY.MM.DD.2`, etc.
 - Includes database file, logs, and statistics
-
-### 📊 **Change Detection**
-
-- Compares SHA256 hash of database file before/after sync
-- No unnecessary releases for unchanged databases
-- Backup creation for safety
-- **Database Management**:
-  - Downloads latest database from previous release before sync
-  - Creates fresh database if no previous versions exist
-
-### 📋 **Comprehensive Logging**
-
-- Captures both stdout and stderr
-- Monitors for warnings and errors in output (excludes normal "no data found" messages)
-- Includes database statistics in releases
-- Full logs attached to email notifications
-- Filters excessive "no data found" messages in email attachments for readability
 
 ## Manual Testing
 

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Yu-Gi-Oh! Super DB Query</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="external/sql-wasm.js"></script>
+    <style>
+        .loader {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .result-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        .result-table th, .result-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .result-table th {
+            background-color: #f8fafc;
+            font-weight: bold;
+        }
+        
+        .result-table tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+    </style>
+    <script>
+        function executeQuery() {
+            const sqlQuery = document.getElementById('queryInput').value;
+            if (!sqlQuery) {
+                showError("SQL query is required");
+                return;
+            }
+            
+            // Update URL to reflect the current query
+            const url = new URL(window.location);
+            url.searchParams.set('sqlquery', sqlQuery);
+            window.history.pushState({}, '', url);
+            
+            // Show loader
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            
+            Promise.all([
+                initSqlJs({ locateFile: file => `external/${file}` }),
+                fetch('assets/yugioh-superdb.sqlite')
+                    .then(response => response.arrayBuffer())
+            ])
+            .then(([SQL, arrayBuffer]) => {
+                const db = new SQL.Database(new Uint8Array(arrayBuffer));
+
+                // Register BIT_COUNT function
+                db.create_function("BIT_COUNT", function(num) {
+                    if (num === null || num === undefined) return 0;
+                    const n = parseInt(num);
+                    if (isNaN(n)) return 0;
+                    return (n >>> 0).toString(2).split('1').length - 1;
+                });
+
+                return db;
+            })
+            .then(db => {
+                try {
+                    const results = db.exec(sqlQuery);
+                    document.getElementById('loader').style.display = 'none';
+                    displayResults(results);
+                } catch (e) {
+                    showError(e.message);
+                }
+            })
+            .catch(e => {
+                showError(e.message);
+            });
+        }
+        
+        function showError(message) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('error').textContent = message;
+            document.getElementById('error').style.display = 'block';
+        }
+        
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (!data || data.length === 0) {
+                resultsDiv.innerHTML = '<div class="p-4 text-center text-gray-500">No results found</div>';
+                return;
+            }
+            
+            data.forEach((resultSet, index) => {
+                if (index > 0) {
+                    resultsDiv.appendChild(document.createElement('hr'));
+                }
+                
+                // Create table
+                const table = document.createElement('table');
+                table.className = 'result-table';
+                
+                // Create header
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                
+                resultSet.columns.forEach(column => {
+                    const th = document.createElement('th');
+                    th.textContent = column;
+                    headerRow.appendChild(th);
+                });
+                
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+                
+                // Create body
+                const tbody = document.createElement('tbody');
+                
+                resultSet.values.forEach(row => {
+                    const tr = document.createElement('tr');
+                    
+                    row.forEach((cell, cellIndex) => {
+                        const td = document.createElement('td');
+                        const columnName = resultSet.columns[cellIndex].toLowerCase();
+                        
+                        if (columnName === 'card_id' && cell !== null) {
+                            const link = document.createElement('a');
+                            link.href = `https://www.db.yugioh-card.com/yugiohdb/card_search.action?ope=2&cid=${cell}`;
+                            link.target = '_blank';
+                            link.textContent = cell;
+                            link.className = 'text-blue-600 hover:underline';
+                            td.appendChild(link);
+                        } 
+                        else if (columnName === 'set_id' && cell !== null) {
+                            const link = document.createElement('a');
+                            link.href = `https://www.db.yugioh-card.com/yugiohdb/card_search.action?ope=1&sess=1&pid=${cell}&rp=99999`;
+                            link.target = '_blank';
+                            link.textContent = cell;
+                            link.className = 'text-blue-600 hover:underline';
+                            td.appendChild(link);
+                        } 
+                        else {
+                            td.textContent = cell === null ? 'NULL' : String(cell);
+                        }
+                        
+                        tr.appendChild(td);
+                    });
+                    
+                    tbody.appendChild(tr);
+                });
+                
+                table.appendChild(tbody);
+                resultsDiv.appendChild(table);
+                
+                // Add row count
+                const rowCount = document.createElement('div');
+                rowCount.className = 'text-sm text-gray-500 mt-2';
+                rowCount.textContent = `${resultSet.values.length} row${resultSet.values.length !== 1 ? 's' : ''} returned`;
+                resultsDiv.appendChild(rowCount);
+            });
+        }
+        
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const sqlQuery = urlParams.get('sqlquery');
+            
+            if (sqlQuery) {
+                document.getElementById('queryInput').value = sqlQuery;
+                executeQuery();
+            }
+        };
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="container mx-auto max-w-6xl">
+        <h1 class="text-2xl font-bold mb-4 text-gray-800">Yu-Gi-Oh! Super DB Query</h1>
+        
+        <div class="bg-white shadow-md rounded-lg p-4 mb-6">
+            <label for="queryInput" class="block text-sm font-medium text-gray-700 mb-2">SQL Query:</label>
+            <textarea id="queryInput" rows="5" class="w-full p-2 border border-gray-300 rounded mb-3 font-mono" placeholder="Enter your SQL query here..."></textarea>
+            <button onclick="executeQuery()" class="px-4 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 transition-colors">Execute Query</button>
+        </div>
+        
+        <div id="error" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" style="display: none;"></div>
+        
+        <div id="loader" class="loader" style="display: none;"></div>
+        
+        <div id="results" class="bg-white shadow-md rounded-lg p-4"></div>
+    </div>
+</body>
+</html>

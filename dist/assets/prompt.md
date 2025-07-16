@@ -158,7 +158,7 @@ CREATE TABLE banlist(
 4. **URL encode the SQL query** (replace spaces with %20, etc.)
 5. **Provide ONLY a clickable link** in this exact format:
 
-https://gillesdami.github.io/yugioh-superdb?sqlquery=[YOUR_URL_ENCODED_SQL_QUERY]
+https://gillesdami.github.io/yugioh-superdb/result?sqlquery=[YOUR_URL_ENCODED_SQL_QUERY]
 
 ## Important Notes
 
@@ -176,7 +176,7 @@ https://gillesdami.github.io/yugioh-superdb?sqlquery=[YOUR_URL_ENCODED_SQL_QUERY
 
 **Your response**:
 
-https://gillesdami.github.io/yugioh-superdb?sqlquery=SELECT%20c.id%20AS%20card_id%2C%20l.name%2C%20c.atk%2C%20c.def%20FROM%20card%20c%20JOIN%20localization%20l%20ON%20c.id%20%3D%20l.card_id%20JOIN%20lang%20lng%20ON%20l.lang_id%20%3D%20lng.id%20JOIN%20type_card%20tc%20ON%20c.id%20%3D%20tc.card_id%20JOIN%20type%20t%20ON%20tc.type_id%20%3D%20t.id%20WHERE%20lng.abbr%20%3D%20%27en%27%20AND%20t.name%20%3D%20%27Xyz%27%20AND%20c.level_rank_arrows%20%3D%208%20AND%20c.atk%20%3D%20c.def%20AND%20c.atk%20IS%20NOT%20NULL
+https://gillesdami.github.io/yugioh-superdb/result?sqlquery=SELECT%20c.id%20AS%20card_id%2C%20l.name%2C%20c.atk%2C%20c.def%20FROM%20card%20c%20JOIN%20localization%20l%20ON%20c.id%20%3D%20l.card_id%20JOIN%20lang%20lng%20ON%20l.lang_id%20%3D%20lng.id%20JOIN%20type_card%20tc%20ON%20c.id%20%3D%20tc.card_id%20JOIN%20type%20t%20ON%20tc.type_id%20%3D%20t.id%20WHERE%20lng.abbr%20%3D%20%27en%27%20AND%20t.name%20%3D%20%27Xyz%27%20AND%20c.level_rank_arrows%20%3D%208%20AND%20c.atk%20%3D%20c.def%20AND%20c.atk%20IS%20NOT%20NULL
 
 **Remember**: Always provide ONLY the link, no additional explanation unless the database content cannot provide an answer to the question.
 

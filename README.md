@@ -2,7 +2,7 @@
 
 > A comprehensive SQLite database of Yu-Gi-Oh! trading card data scraped from the official Yu-Gi-Oh! Database
 
-[![Node.js](https://img.shields.io/badge/Node.js-16%2B-green.svg)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-green.svg)](https://nodejs.org/)
 [![SQLite](https://img.shields.io/badge/Database-SQLite-blue.svg)](https://sqlite.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Automated Updates](https://img.shields.io/badge/Updates-Daily%20Automated-brightgreen.svg)](https://github.com/yourusername/yugioh-superdb/actions)
@@ -11,20 +11,38 @@
 
 Yu-Gi-Oh! SuperDB is an automated data scraping and database management system that creates and maintains a comprehensive SQLite database of Yu-Gi-Oh! trading card information. The system scrapes data from the official [Yu-Gi-Oh! Database](https://www.db.yugioh-card.com/yugiohdb) and provides incremental updates to ensure data stays current without requiring full re-scraping.
 
+## 🌐 Web Interface
+
+The project includes a GitHub Pages web interface that allows users to interact with the database using AI:
+
+- **Live Site**: [Yu-Gi-Oh! SuperDB Web Interface](https://gillesdami.github.io/yugioh-superdb/)
+- **Features**:
+  - AI-powered querying of the database using natural language
+  - Downloadable prompt for use with ChatGPT
+  - Example questions to get started
+  - Simple, user-friendly interface
+
+The web interface leverages Large Language Models to interpret natural language questions about Yu-Gi-Oh! cards, sets, and banlists, providing precise answers without requiring SQL knowledge.
+
 ## ✨ Features
 
 - 🎯 **Comprehensive Card Data**: Scrapes detailed information from the official Yu-Gi-Oh! Database
 - 🔄 **Incremental Updates**: Efficiently adds new cards without re-scraping existing data
 - 📊 **SQLite Database**: Lightweight, portable database format
 - 🤖 **Automated Daily Sync**: GitHub Actions workflow runs daily at 2:00 AM UTC
-- 📦 **Automatic Releases**: Creates versioned releases when database changes are detected
-- 📧 **Email Notifications**: Alerts for updates, failures, and warnings
 - 📈 **Database Statistics**: Tracks changes and provides detailed logs
 - 🔍 **Change Detection**: Smart hash-based comparison to avoid unnecessary updates
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Web Interface
+
+For immediate use without installation:
+
+1. Visit the [Yu-Gi-Oh! SuperDB Web Interface](https://gillesdami.github.io/yugioh-superdb/)
+2. Follow the instructions to use the AI-powered database interface
+
+### Local Development Prerequisites
 
 - Node.js 16 or higher
 - npm or yarn package manager
@@ -52,6 +70,22 @@ Yu-Gi-Oh! SuperDB is an automated data scraping and database management system t
     npm start
     ```
 
+## 📂 Project Structure
+
+- `src/` - Source code for database scraping and management
+  - `db/` - Database utilities and schema definitions
+  - `scrapers/` - Specialized scrapers for different data types
+  - `services/` - Business logic services
+  - `utils/` - Utility functions
+- `dist/` directory contains files for distribution and the GitHub Pages
+  - `index.html` - The main web interface page
+  - `assets/`
+    - `yugioh-superdb.sqlite` - The complete SQLite database
+    - `prompt.md` - The AI prompt template for ChatGPT integration
+    - `translations.json` - Card translations for multiple languages
+  - `result/` - Contains logs and results from scraping operations
+  - `external/` - External resources for the web interface
+
 ## 💾 Database Schema
 
 The database structure is defined in `db/genTables.sql`.
@@ -76,17 +110,9 @@ This repository includes a sophisticated automation system powered by GitHub Act
 ### How It Works
 
 1. **Daily Execution**: Workflow runs automatically at 2:00 AM UTC
-2. **Smart Downloads**: Fetches the latest database from previous releases
-3. **Incremental Sync**: Updates only new or changed card data
-4. **Change Detection**: Uses SHA256 hashing to detect actual database changes
-5. **Release Management**: Creates new releases only when changes are detected
-6. **Notifications**: Sends detailed email reports for all scenarios
-
-### Release Versioning
-
-- Format: `vYYYY.MM.DD` (e.g., `v2024.12.15`)
-- Multiple same-day releases: `vYYYY.MM.DD.1`, `vYYYY.MM.DD.2`
-- Each release includes the updated database file and detailed logs
+2. **Incremental Sync**: Updates only new or changed card data
+3. **Change Detection**: Uses SHA256 hashing to detect actual database changes
+4. **Version bump**: Creates new version `vYYYY.MM.DD` with the fresh database
 
 ### Setup Automation
 
@@ -100,7 +126,7 @@ For detailed setup instructions including email configuration, see [`GITHUB_ACTI
 # Run the scraper
 npm start
 
-# The resulting database will be saved as dist/assetsyugioh-superdb.sqlite
+# The resulting database will be saved as dist/assets/yugioh-superdb.sqlite
 ```
 
 ## 🔧 Configuration
@@ -110,15 +136,6 @@ The scraper behavior can be configured by modifying the main script. Key configu
 - Scraping intervals and delays
 - Database connection settings
 - Error handling and retry logic
-
-## 📊 Monitoring
-
-The system provides comprehensive monitoring through:
-
-- **GitHub Actions Logs**: Detailed execution logs for each run
-- **Email Notifications**: Automated alerts for different scenarios
-- **Release Notes**: Database statistics and change summaries
-- **Error Tracking**: Detailed error logs for troubleshooting
 
 ## 🤝 Contributing
 
