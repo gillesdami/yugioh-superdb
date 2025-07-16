@@ -146,7 +146,31 @@ SELECT MAX(id) as max_id FROM card`);
     this.db.exec(`INSERT OR IGNORE INTO banlist (effective_date, region_id) VALUES (?, ?)`, [date, regionId]);
     const banlistResult = this.db.exec(`SELECT id FROM banlist WHERE effective_date = ? AND region_id = ?`, [date, regionId]);
     return banlistResult[0]?.values[0]?.[0];
+  }
 
+  updatePreviousBanlistUntilDate(newDate, region) {
+    const regionId = this.getOrCreateRegionId(region);
+    // Get the previous banlist (the one with the highest effective_date less than newDate)
+    const prevBanlistResult = this.db.exec(
+      `SELECT id, effective_date FROM banlist 
+       WHERE region_id = ? AND effective_date < ? 
+       ORDER BY effective_date DESC LIMIT 1`, 
+      [regionId, newDate]
+    );
+    
+    if (prevBanlistResult[0]?.values?.length > 0) {
+      const prevBanlistId = prevBanlistResult[0].values[0][0];
+      // Calculate the until_date as one day before the new effective_date
+      const untilDate = new Date(newDate);
+      untilDate.setDate(untilDate.getDate() - 1);
+      const untilDateStr = untilDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+      
+      // Update the previous banlist's until_date
+      this.db.exec(
+        `UPDATE banlist SET until_date = ? WHERE id = ?`,
+        [untilDateStr, prevBanlistId]
+      );
+    }
   }
 
   getOrCreateRegionId(region) {

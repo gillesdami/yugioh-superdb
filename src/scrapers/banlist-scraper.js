@@ -22,9 +22,17 @@ export class BanlistScraper extends BaseScraper {
         for (const [locale, region] of scopes) {
             const dates = await this.fetchBanlistDates(locale);
 
+            // Sort dates chronologically to ensure proper until_date updates
+            dates.sort();
+            
             for (const date of dates) {
                 if (this.db.getBanlistId(date, region) === undefined) {
                     console.log(`Scraping banlist for ${region} at date ${date}...`);
+                    
+                    // Update the until_date of the previous banlist
+                    this.db.updatePreviousBanlistUntilDate(date, region);
+                    
+                    // Then scrape the new banlist
                     await this.scrapeBanlist(date, locale, region);
                 }
             }

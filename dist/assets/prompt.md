@@ -132,6 +132,7 @@ CREATE TABLE banlist(
     id INTEGER PRIMARY KEY,
     region_id INTEGER,
     effective_date DATE,
+    until_date DATE, -- The day before the next banlist effective_date of the same region, or NULL if there is no next banlist
 
     FOREIGN KEY(region_id) REFERENCES region(id)
 );
