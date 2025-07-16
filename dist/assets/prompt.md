@@ -111,7 +111,7 @@ CREATE TABLE edition(
     FOREIGN KEY(cardset_id) REFERENCES cardset(id)
 );
 
--- The maximum number of card allowed in a deck, side deck or extra deck
+-- The maximum number of card allowed in a deck, side deck or extra deck during the period of a banlist. A card may have different limitation in each banlist
 CREATE TABLE limitation(
     banlist_id INTEGER,
     card_id INTEGER,
