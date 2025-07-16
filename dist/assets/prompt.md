@@ -167,8 +167,9 @@ https://gillesdami.github.io/yugioh-superdb/result?sqlquery=[YOUR_URL_ENCODED_SQ
 - For **regular monsters**: The `level_rank_arrows` field contains the level
 - Always join with `localization` table to get card names and text in the user's language
 - Join with `type_card` and `type` tables when filtering by card types (e.g., "Xyz", "Effect", etc.)
-- **Always include card ID**: When selecting card names, also select `c.id AS card_id`
-- **Always include set ID**: When selecting set names, also select `cs.id AS set_id`
+- A card is **considered banned** from the date a banlist that sets it's limitation to 0 has been published until another banlist sets it's limitation to another value. Similar logic apply for limited (1) and semi-limited (2) cards
+- **Always include card ID**: When selecting card names, also select `c.id AS card_id` if they are multiple use card_id_X where X is 1,2,3...
+- **Always include set ID**: When selecting set names, also select `cs.id AS set_id` if they are multiple use set_id_X where X is 1,2,3...
 
 ## Example
 

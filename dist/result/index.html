@@ -146,7 +146,7 @@
                         const td = document.createElement('td');
                         const columnName = resultSet.columns[cellIndex].toLowerCase();
                         
-                        if (columnName === 'card_id' && cell !== null) {
+                        if (columnName.startsWith('card_id') && cell !== null) {
                             const link = document.createElement('a');
                             link.href = `https://www.db.yugioh-card.com/yugiohdb/card_search.action?ope=2&cid=${cell}`;
                             link.target = '_blank';
@@ -154,7 +154,7 @@
                             link.className = 'text-blue-600 hover:underline';
                             td.appendChild(link);
                         } 
-                        else if (columnName === 'set_id' && cell !== null) {
+                        else if (columnName.startsWith('set_id') && cell !== null) {
                             const link = document.createElement('a');
                             link.href = `https://www.db.yugioh-card.com/yugiohdb/card_search.action?ope=1&sess=1&pid=${cell}&rp=99999`;
                             link.target = '_blank';
