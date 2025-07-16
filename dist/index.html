@@ -23,14 +23,20 @@
             </section>
 
             <section class="mb-8">
-                <h2 class="text-2xl font-semibold mb-4">How to Use</h2>
+                <h2 class="text-2xl font-semibold mb-4">Ask Your Question</h2>
                 <ol class="list-decimal pl-6 space-y-4">
                     <li>
-                        Copy the super prompt by 
-                        <button id="copyPromptBtn" class="text-blue-600 hover:underline font-medium">clicking here</button>
-                        <span id="copyFeedback" class="ml-2 text-green-600 hidden">✓ Prompt copied to clipboard!</span>
+                        <div class="mb-4">
+                            <label for="userPrompt" class="block text-gray-700 mb-2">Type your question here: <span class="text-red-600">*</span></label>
+                            <textarea id="userPrompt" rows="3" class="w-full p-3 border border-gray-300 rounded-md focus:border-blue-500 focus:ring focus:ring-blue-200 transition" placeholder="E.g., What are the rank 8 xyz monsters that have def equal to their attack?" required></textarea>
+                            <div id="promptWarning" class="text-red-600 text-sm mt-2 hidden">Please enter a question</div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button id="copyPromptBtn" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed">Get the prompt</button>
+                            <span id="copyFeedback" class="text-green-600 hidden">✓ Prompt copied to clipboard!</span>
+                        </div>
                     </li>
-                    <li>Head to <a href="https://chat.openai.com/" target="_blank" class="text-blue-600 hover:underline font-medium">ChatGPT</a>, paste the prompt and type your question</li>
+                    <li>Head to <a href="https://chat.openai.com/" target="_blank" class="text-blue-600 hover:underline font-medium">ChatGPT</a> and paste the prompt</li>
                     <li>Click the link ChatGPT gives you to get an exact answer</li>
                 </ol>
             </section>
@@ -38,10 +44,17 @@
             <section>
                 <h2 class="text-2xl font-semibold mb-4">Example Questions</h2>
                 <div class="bg-gray-100 p-4 rounded-md">
+                    <p class="mb-3 text-sm text-gray-700">Click on any example to use it as your question:</p>
                     <ul class="list-disc pl-6 space-y-3">
-                        <li>What are the sets that contain normal monsters?</li>
-                        <li>List the cards that have been banned in the TCG sorted by the duration for which they were banned.</li>
-                        <li>What are the couples of monster mirrors? A monster mirror is a monster that has DEF equal to the ATK of the first monster; ATK equal to the DEF of the first monster; and level equal to 12-x where x is the level of the first monster and opposite attribute (LIGHT↔DARK; WIND↔EARTH; WATER↔FIRE).</li>
+                        <li class="cursor-pointer hover:bg-gray-200 p-1 rounded flex items-center" onclick="document.getElementById('userPrompt').value=this.textContent.replace('📋 ', '').trim(); document.getElementById('userPrompt').dispatchEvent(new Event('input'))">
+                            <span class="text-blue-600 mr-2">📋</span> What are the sets that contain normal monsters?
+                        </li>
+                        <li class="cursor-pointer hover:bg-gray-200 p-1 rounded flex items-center" onclick="document.getElementById('userPrompt').value=this.textContent.replace('📋 ', '').trim(); document.getElementById('userPrompt').dispatchEvent(new Event('input'))">
+                            <span class="text-blue-600 mr-2">📋</span> List the cards that have been banned in the TCG sorted by the duration for which they were banned.
+                        </li>
+                        <li class="cursor-pointer hover:bg-gray-200 p-1 rounded flex items-center" onclick="document.getElementById('userPrompt').value=this.textContent.replace('📋 ', '').trim(); document.getElementById('userPrompt').dispatchEvent(new Event('input'))">
+                            <span class="text-blue-600 mr-2">📋</span> What are the couples of monster mirrors? A monster mirror is a monster that has DEF equal to the ATK of the first monster; ATK equal to the DEF of the first monster; and level equal to 12-x where x is the level of the first monster and opposite attribute (LIGHT↔DARK; WIND↔EARTH; WATER↔FIRE).
+                        </li>
                     </ul>
                 </div>
             </section>
@@ -58,6 +71,29 @@
         document.addEventListener('DOMContentLoaded', function() {
             const copyPromptBtn = document.getElementById('copyPromptBtn');
             const copyFeedback = document.getElementById('copyFeedback');
+            const userPromptTextarea = document.getElementById('userPrompt');
+            const promptWarning = document.getElementById('promptWarning');
+            
+            // Initially disable the button if textarea is empty
+            const isEmptyPrompt = userPromptTextarea.value.trim() === '';
+            copyPromptBtn.disabled = isEmptyPrompt;
+            if (isEmptyPrompt) {
+                promptWarning.classList.remove('hidden');
+            }
+            
+            // enable/disable get prompt button
+            userPromptTextarea.addEventListener('input', function() {
+                const userPrompt = this.value.trim();
+                const isEmpty = userPrompt === '';
+                copyPromptBtn.disabled = isEmpty;
+                
+                // Show/hide warning
+                if (isEmpty) {
+                    promptWarning.classList.remove('hidden');
+                } else {
+                    promptWarning.classList.add('hidden');
+                }
+            });
             
             copyPromptBtn.addEventListener('click', async function() {
                 try {
@@ -65,8 +101,20 @@
                     const response = await fetch('assets/prompt.md');
                     const promptText = await response.text();
                     
+                    // Get user's prompt (required now)
+                    const userPrompt = userPromptTextarea.value.trim();
+                    
+                    // Validate that there's a question (should be prevented by disabled button, but double-check)
+                    if (!userPrompt) {
+                        alert('Please type a question before copying the prompt.');
+                        return;
+                    }
+                    
+                    // Combine base prompt with user prompt
+                    let finalPrompt = promptText + '\n\n' + userPrompt;
+                    
                     // Copy to clipboard
-                    await navigator.clipboard.writeText(promptText);
+                    await navigator.clipboard.writeText(finalPrompt);
                     
                     // Show feedback
                     copyFeedback.classList.remove('hidden');
